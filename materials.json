@@ -32,5 +32,116 @@
       { "name": "Ca", "fraction": 0.002662 }
     ],
     "density": { "value": 1.127, "unit": "g/cm3" }
+  },
+  "acetone": {
+    "name": "Acetone",
+    "elements": [
+      { "name": "H", "fraction": 0.6 },
+      { "name": "C", "fraction": 0.3 },
+      { "name": "O", "fraction": 0.1 }
+    ],
+    "density": { "value": 0.7899, "unit": "g/cm3" }
+  },
+  "acetylene": {
+    "name": "Acetylene",
+    "elements": [
+      { "name": "H", "fraction": 0.5 },
+      { "name": "C", "fraction": 0.5 }
+    ],
+    "density": { "value": 0.0010967, "unit": "g/cm3" }
+  },
+  "air_dry_sea_level": {
+    "name": "Air (dry, near sea level)",
+    "elements": [
+      { "name": "C", "fraction": 0.00015 },
+      { "name": "N", "fraction": 0.784429 },
+      { "name": "O", "fraction": 0.21075 },
+      { "name": "Ar", "fraction": 0.004671 }
+    ],
+    "density": { "value": 0.001205, "unit": "g/cm3" }
+  },
+  "alanine": {
+    "name": "Alanine",
+    "elements": [
+      { "name": "H", "fraction": 0.538441 },
+      { "name": "C", "fraction": 0.230784 },
+      { "name": "N", "fraction": 0.076925 },
+      { "name": "O", "fraction": 0.153851 }
+    ],
+    "density": { "value": 1.42, "unit": "g/cm3" }
+  },
+  "aluminum": {
+    "name": "Aluminum",
+    "elements": [
+      { "name": "Al", "fraction": 1.0 }
+    ],
+    "density": { "value": 2.6989, "unit": "g/cm3" }
+  },
+  "aluminum_oxide": {
+    "name": "Aluminum Oxide",
+    "elements": [
+      { "name": "O", "fraction": 0.6 },
+      { "name": "Al", "fraction": 0.4 }
+    ],
+    "density": { "value": 3.97, "unit": "g/cm3" }
+  },
+  "aluminum_alloy_2024_o": {
+    "name": "Aluminum, alloy 2024-O",
+    "elements": [
+      { "name": "Mg", "fraction": 0.017157 },
+      { "name": "Al", "fraction": 0.955161 },
+      { "name": "Si", "fraction": 0.002804 },
+      { "name": "Ti", "fraction": 0.000494 },
+      { "name": "Cr", "fraction": 0.000303 },
+      { "name": "Mn", "fraction": 0.003036 },
+      { "name": "Fe", "fraction": 0.00141 },
+      { "name": "Cu", "fraction": 0.019031 },
+      { "name": "Zn", "fraction": 0.000603 }
+    ],
+    "density": { "value": 2.78, "unit": "g/cm3" }
+  },
+  "aluminum_alloy_2090_t83": {
+    "name": "Aluminum, alloy 2090-T83",
+    "elements": [
+      { "name": "Li", "fraction": 0.083227 },
+      { "name": "Mg", "fraction": 0.001729 },
+      { "name": "Al", "fraction": 0.901709 },
+      { "name": "Si", "fraction": 0.000598 },
+      { "name": "Ti", "fraction": 0.000527 },
+      { "name": "Cr", "fraction": 0.000162 },
+      { "name": "Mn", "fraction": 0.000153 },
+      { "name": "Fe", "fraction": 0.000361 },
+      { "name": "Cu", "fraction": 0.010951 },
+      { "name": "Zn", "fraction": 0.000257 },
+      { "name": "Zr", "fraction": 0.000325 }
+    ],
+    "density": { "value": 2.59, "unit": "g/cm3" }
+  },
+  "aluminum_alloy_3003": {
+    "name": "Aluminum, alloy 3003",
+    "elements": [
+      { "name": "Al", "fraction": 0.987924 },
+      { "name": "Si", "fraction": 0.003221 },
+      { "name": "Mn", "fraction": 0.006198 },
+      { "name": "Fe", "fraction": 0.00189 },
+      { "name": "Cu", "fraction": 0.000536 },
+      { "name": "Zn", "fraction": 0.000231 }
+    ],
+    "density": { "value": 2.73, "unit": "g/cm3" }
+  },
+  "aluminum_alloy_4043_o": {
+    "name": "Aluminum, alloy 4043-O",
+    "elements": [
+      { "name": "Be", "fraction": 0.000015 },
+      { "name": "Mg", "fraction": 0.000316 },
+      { "name": "Al", "fraction": 0.944964 },
+      { "name": "Si", "fraction": 0.050758 },
+      { "name": "Ti", "fraction": 0.000643 },
+      { "name": "Mn", "fraction": 0.00014 },
+      { "name": "Fe", "fraction": 0.002203 },
+      { "name": "Cu", "fraction": 0.000726 },
+      { "name": "Zn", "fraction": 0.000235 }
+    ],
+    "density": { "value": 2.69, "unit": "g/cm3" }
   }
 }
