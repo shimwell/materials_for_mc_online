@@ -1,0 +1,36 @@
+{
+  "pure_li6": {
+    "name": "Pure Li-6",
+    "nuclides": [
+      { "name": "Li6", "fraction": 1.0 }
+    ],
+    "density": { "value": 0.534, "unit": "g/cm3" }
+  },
+  "natural_lithium": {
+    "name": "Natural Lithium",
+    "elements": [
+      { "name": "Li", "fraction": 1.0 }
+    ],
+    "density": { "value": 0.534, "unit": "g/cm3" }
+  },
+  "enriched_lithium": {
+    "name": "Enriched Lithium",
+    "nuclides": [
+      { "name": "Li6", "fraction": 0.20 },
+      { "name": "Li7", "fraction": 0.80 }
+    ],
+    "density": { "value": 0.534, "unit": "g/cm3" }
+  },
+  "a150_tissue": {
+    "name": "A-150 Tissue-Equivalent Plastic",
+    "elements": [
+      { "name": "H", "fraction": 0.583629 },
+      { "name": "C", "fraction": 0.374869 },
+      { "name": "N", "fraction": 0.014531 },
+      { "name": "O", "fraction": 0.018984 },
+      { "name": "F", "fraction": 0.005324 },
+      { "name": "Ca", "fraction": 0.002662 }
+    ],
+    "density": { "value": 1.127, "unit": "g/cm3" }
+  }
+}

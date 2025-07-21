@@ -282,8 +282,7 @@
             document.querySelectorAll('input[name="x-scale"], input[name="y-scale"]').forEach(radio => {
                 radio.addEventListener('change', updatePlot);
             });
-            
-            // Add initial reaction row (pure Li6 total)
+
             addReactionRow();
         }
 
@@ -575,17 +574,7 @@
             reactionSelect.addEventListener('change', updatePlot);
             
             // Set defaults for first row (pure li6, total)
-            if (reactionsContainer.children.length === 1) {
-                materialSelect.value = 'pure_li6';
-            }
-            // Set defaults for second row (natural lithium, MT 2)
-            else if (reactionsContainer.children.length === 2) {
-                materialSelect.value = 'natural_lithium';
-            }
-            // Set defaults for third row (enriched lithium, MT 2)
-            else if (reactionsContainer.children.length === 3) {
-                materialSelect.value = 'enriched_lithium';
-            }
+            materialSelect.value = 'pure_li6';
             
             // Initialize the reaction select based on the default material
             updateAvailableReactions().catch(error => {
