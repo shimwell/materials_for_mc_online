@@ -1,0 +1,17 @@
+{
+  "name": "materials_for_mc",
+  "type": "module",
+  "description": "Material builder for Monte Carlo simulations",
+  "version": "0.1.0",
+  "license": "MIT",
+  "files": [
+    "materials_for_mc_bg.wasm",
+    "materials_for_mc.js",
+    "materials_for_mc.d.ts"
+  ],
+  "main": "materials_for_mc.js",
+  "types": "materials_for_mc.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
