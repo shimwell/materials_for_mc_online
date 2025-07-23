@@ -541,32 +541,38 @@ async function addReactionRow() {
             mts = [];
         }
 
-        // Populate the reaction dropdown
-        reactionSelect.innerHTML = '';
-        // Always add 'Total' as the first option
-        const totalOption = document.createElement('option');
-        totalOption.value = 'total';
-        totalOption.textContent = 'Total';
-        reactionSelect.appendChild(totalOption);
-        // Add MTs
-        if (mts && mts.length > 0) {
-            for (const mt of mts) {
-                console.log('[Dropdown] Adding MT option:', mt);
-                const opt = document.createElement('option');
-                opt.value = mt;
-                opt.textContent = `MT ${mt}`;
-                reactionSelect.appendChild(opt);
-            }
-        } else {
-            console.warn('[Dropdown] No MTs found for material:', materialId);
+    // Populate the reaction dropdown
+    reactionSelect.innerHTML = '';
+    // Add a default 'Select reaction' option
+    const selectOption = document.createElement('option');
+    selectOption.value = '';
+    selectOption.textContent = 'Select reaction';
+    selectOption.disabled = false;
+    selectOption.selected = true;
+    reactionSelect.appendChild(selectOption);
+    // Add 'Total' as an option
+    const totalOption = document.createElement('option');
+    totalOption.value = 'total';
+    totalOption.textContent = 'Total';
+    reactionSelect.appendChild(totalOption);
+    // Add MTs
+    if (mts && mts.length > 0) {
+        for (const mt of mts) {
+            console.log('[Dropdown] Adding MT option:', mt);
+            const opt = document.createElement('option');
+            opt.value = mt;
+            opt.textContent = `MT ${mt}`;
+            reactionSelect.appendChild(opt);
         }
+    } else {
+        console.warn('[Dropdown] No MTs found for material:', materialId);
+    }
 
         updatePlot();
     });
 
     // Trigger initial load for the default selected material
     materialSelect.dispatchEvent(new Event('change'));
-    updatePlot();
 }
         
         // Update the plot based on selected reactions
