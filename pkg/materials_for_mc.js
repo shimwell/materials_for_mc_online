@@ -258,6 +258,14 @@ export function wasm_set_nuclide_data(name, json_content) {
     }
 }
 
+/**
+ * @returns {any}
+ */
+export function natural_abundance() {
+    const ret = wasm.natural_abundance();
+    return ret;
+}
+
 const WasmConfigFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_wasmconfig_free(ptr >>> 0, 1));
@@ -404,10 +412,11 @@ export class WasmMaterial {
         return takeFromExternrefTable0(ret[0]);
     }
     /**
+     * @param {Array<any> | null} [mt_filter]
      * @returns {any}
      */
-    calculate_macroscopic_xs_neutron() {
-        const ret = wasm.wasmmaterial_calculate_macroscopic_xs_neutron(this.__wbg_ptr);
+    calculate_macroscopic_xs_neutron(mt_filter) {
+        const ret = wasm.wasmmaterial_calculate_macroscopic_xs_neutron(this.__wbg_ptr, isLikeNone(mt_filter) ? 0 : addToExternrefTable0(mt_filter));
         if (ret[2]) {
             throw takeFromExternrefTable0(ret[1]);
         }
@@ -426,9 +435,12 @@ export class WasmMaterial {
     /**
      * @returns {Array<any>}
      */
-    get_available_mt_numbers() {
-        const ret = wasm.wasmmaterial_get_available_mt_numbers(this.__wbg_ptr);
-        return ret;
+    reaction_mts() {
+        const ret = wasm.wasmmaterial_reaction_mts(this.__wbg_ptr);
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        return takeFromExternrefTable0(ret[0]);
     }
     /**
      * @param {number} energy
@@ -724,6 +736,10 @@ function __wbg_get_imports() {
         const ret = arg0.length;
         return ret;
     };
+    imports.wbg.__wbg_new_405e22f390576ce2 = function() {
+        const ret = new Object();
+        return ret;
+    };
     imports.wbg.__wbg_new_5e0be73521bc8c17 = function() {
         const ret = new Map();
         return ret;
@@ -744,6 +760,9 @@ function __wbg_get_imports() {
         const ret = arg0.push(arg1);
         return ret;
     };
+    imports.wbg.__wbg_set_3f1d0b984ed272ed = function(arg0, arg1, arg2) {
+        arg0[arg1] = arg2;
+    };
     imports.wbg.__wbg_set_8fc6bf8a5b1071d1 = function(arg0, arg1, arg2) {
         const ret = arg0.set(arg1, arg2);
         return ret;
@@ -762,6 +781,10 @@ function __wbg_get_imports() {
         getDataViewMemory0().setInt32(arg0 + 4 * 1, len1, true);
         getDataViewMemory0().setInt32(arg0 + 4 * 0, ptr1, true);
     };
+    imports.wbg.__wbindgen_error_new = function(arg0, arg1) {
+        const ret = new Error(getStringFromWasm0(arg0, arg1));
+        return ret;
+    };
     imports.wbg.__wbindgen_init_externref_table = function() {
         const table = wasm.__wbindgen_export_3;
         const offset = table.grow(4);
@@ -771,6 +794,10 @@ function __wbg_get_imports() {
         table.set(offset + 2, true);
         table.set(offset + 3, false);
         ;
+    };
+    imports.wbg.__wbindgen_is_string = function(arg0) {
+        const ret = typeof(arg0) === 'string';
+        return ret;
     };
     imports.wbg.__wbindgen_number_new = function(arg0) {
         const ret = arg0;
