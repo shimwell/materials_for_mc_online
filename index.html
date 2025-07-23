@@ -226,8 +226,97 @@
     </div>
 
     <script type="module">
+
         // Import the WASM module
         import init, { WasmConfig, WasmMaterial } from './pkg/materials_for_mc.js';
+
+        // Global element-to-nuclide mapping
+        const elementNuclides = {
+            "H": ["H1", "H2"],
+            "He": ["He3", "He4"],
+            "Li": ["Li6", "Li7"],
+            "Be": ["Be9"],
+            "B": ["B10", "B11"],
+            "C": ["C12", "C13"],
+            "N": ["N14", "N15"],
+            "O": ["O16", "O17", "O18"],
+            "F": ["F19"],
+            "Ne": ["Ne20", "Ne21", "Ne22"],
+            "Na": ["Na23"],
+            "Mg": ["Mg24", "Mg25", "Mg26"],
+            "Al": ["Al27"],
+            "Si": ["Si28", "Si29", "Si30"],
+            "P": ["P31"],
+            "S": ["S32", "S33", "S34", "S36"],
+            "Cl": ["Cl35", "Cl37"],
+            "Ar": ["Ar36", "Ar38", "Ar40"],
+            "K": ["K39", "K40", "K41"],
+            "Ca": ["Ca40", "Ca42", "Ca43", "Ca44", "Ca46", "Ca48"],
+            "Sc": ["Sc45"],
+            "Ti": ["Ti46", "Ti47", "Ti48", "Ti49", "Ti50"],
+            "V": ["V50", "V51"],
+            "Cr": ["Cr50", "Cr52", "Cr53", "Cr54"],
+            "Mn": ["Mn55"],
+            "Fe": ["Fe54", "Fe56", "Fe57", "Fe58"],
+            "Co": ["Co59"],
+            "Ni": ["Ni58", "Ni60", "Ni61", "Ni62", "Ni64"],
+            "Cu": ["Cu63", "Cu65"],
+            "Zn": ["Zn64", "Zn66", "Zn67", "Zn68", "Zn70"],
+            "Ga": ["Ga69", "Ga71"],
+            "Ge": ["Ge70", "Ge72", "Ge73", "Ge74", "Ge76"],
+            "As": ["As75"],
+            "Se": ["Se74", "Se76", "Se77", "Se78", "Se80", "Se82"],
+            "Br": ["Br79", "Br81"],
+            "Kr": ["Kr78", "Kr80", "Kr82", "Kr83", "Kr84", "Kr86"],
+            "Rb": ["Rb85", "Rb87"],
+            "Sr": ["Sr84", "Sr86", "Sr87", "Sr88"],
+            "Y": ["Y89"],
+            "Zr": ["Zr90", "Zr91", "Zr92", "Zr94", "Zr96"],
+            "Nb": ["Nb93"],
+            "Mo": ["Mo92", "Mo94", "Mo95", "Mo96", "Mo97", "Mo98", "Mo100"],
+            "Ru": ["Ru96", "Ru98", "Ru99", "Ru100", "Ru101", "Ru102", "Ru104"],
+            "Rh": ["Rh103"],
+            "Pd": ["Pd102", "Pd104", "Pd105", "Pd106", "Pd108", "Pd110"],
+            "Ag": ["Ag107", "Ag109"],
+            "Cd": ["Cd106", "Cd108", "Cd110", "Cd111", "Cd112", "Cd113", "Cd114", "Cd116"],
+            "In": ["In113", "In115"],
+            "Sn": ["Sn112", "Sn114", "Sn115", "Sn116", "Sn117", "Sn118", "Sn119", "Sn120", "Sn122", "Sn124"],
+            "Sb": ["Sb121", "Sb123"],
+            "Te": ["Te120", "Te122", "Te123", "Te124", "Te125", "Te126", "Te128", "Te130"],
+            "I": ["I127"],
+            "Xe": ["Xe124", "Xe126", "Xe128", "Xe129", "Xe130", "Xe131", "Xe132", "Xe134", "Xe136"],
+            "Cs": ["Cs133"],
+            "Ba": ["Ba130", "Ba132", "Ba134", "Ba135", "Ba136", "Ba137", "Ba138"],
+            "La": ["La138", "La139"],
+            "Ce": ["Ce136", "Ce138", "Ce140", "Ce142"],
+            "Pr": ["Pr141"],
+            "Nd": ["Nd142", "Nd143", "Nd144", "Nd145", "Nd146", "Nd148", "Nd150"],
+            "Sm": ["Sm144", "Sm147", "Sm148", "Sm149", "Sm150", "Sm152", "Sm154"],
+            "Eu": ["Eu151", "Eu153"],
+            "Gd": ["Gd152", "Gd154", "Gd155", "Gd156", "Gd157", "Gd158", "Gd160"],
+            "Tb": ["Tb159"],
+            "Dy": ["Dy156", "Dy158", "Dy160", "Dy161", "Dy162", "Dy163", "Dy164"],
+            "Ho": ["Ho165"],
+            "Er": ["Er162", "Er164", "Er166", "Er167", "Er168", "Er170"],
+            "Tm": ["Tm169"],
+            "Yb": ["Yb168", "Yb170", "Yb171", "Yb172", "Yb173", "Yb174", "Yb176"],
+            "Lu": ["Lu175", "Lu176"],
+            "Hf": ["Hf174", "Hf176", "Hf177", "Hf178", "Hf179", "Hf180"],
+            "Ta": ["Ta180_m1", "Ta181"],
+            "W": ["W180", "W182", "W183", "W184", "W186"],
+            "Re": ["Re185", "Re187"],
+            "Os": ["Os184", "Os186", "Os187", "Os188", "Os189", "Os190", "Os192"],
+            "Ir": ["Ir191", "Ir193"],
+            "Pt": ["Pt190", "Pt192", "Pt194", "Pt195", "Pt196", "Pt198"],
+            "Au": ["Au197"],
+            "Hg": ["Hg196", "Hg198", "Hg199", "Hg200", "Hg201", "Hg202", "Hg204"],
+            "Tl": ["Tl203", "Tl205"],
+            "Pb": ["Pb204", "Pb206", "Pb207", "Pb208"],
+            "Bi": ["Bi209"],
+            "Th": ["Th230", "Th232"],
+            "Pa": ["Pa231"],
+            "U": ["U234", "U235", "U238"]
+        };
 
         // Material definitions will be loaded from materials.json
         let materialDefinitions = {};
@@ -320,94 +409,6 @@
                     // Load and add elements
                     if (Array.isArray(materialDef.elements)) {
                         for (const element of materialDef.elements) {
-                            // For natural abundance elements, WASM will expand to nuclides
-                            // Load all nuclide data for the element before adding
-                            const elementNuclides = {
-                                "H": ["H1", "H2"],
-                                "He": ["He3", "He4"],
-                                "Li": ["Li6", "Li7"],
-                                "Be": ["Be9"],
-                                "B": ["B10", "B11"],
-                                "C": ["C12", "C13"],
-                                "N": ["N14", "N15"],
-                                "O": ["O16", "O17", "O18"],
-                                "F": ["F19"],
-                                "Ne": ["Ne20", "Ne21", "Ne22"],
-                                "Na": ["Na23"],
-                                "Mg": ["Mg24", "Mg25", "Mg26"],
-                                "Al": ["Al27"],
-                                "Si": ["Si28", "Si29", "Si30"],
-                                "P": ["P31"],
-                                "S": ["S32", "S33", "S34", "S36"],
-                                "Cl": ["Cl35", "Cl37"],
-                                "Ar": ["Ar36", "Ar38", "Ar40"],
-                                "K": ["K39", "K40", "K41"],
-                                "Ca": ["Ca40", "Ca42", "Ca43", "Ca44", "Ca46", "Ca48"],
-                                "Sc": ["Sc45"],
-                                "Ti": ["Ti46", "Ti47", "Ti48", "Ti49", "Ti50"],
-                                "V": ["V50", "V51"],
-                                "Cr": ["Cr50", "Cr52", "Cr53", "Cr54"],
-                                "Mn": ["Mn55"],
-                                "Fe": ["Fe54", "Fe56", "Fe57", "Fe58"],
-                                "Co": ["Co59"],
-                                "Ni": ["Ni58", "Ni60", "Ni61", "Ni62", "Ni64"],
-                                "Cu": ["Cu63", "Cu65"],
-                                "Zn": ["Zn64", "Zn66", "Zn67", "Zn68", "Zn70"],
-                                "Ga": ["Ga69", "Ga71"],
-                                "Ge": ["Ge70", "Ge72", "Ge73", "Ge74", "Ge76"],
-                                "As": ["As75"],
-                                "Se": ["Se74", "Se76", "Se77", "Se78", "Se80", "Se82"],
-                                "Br": ["Br79", "Br81"],
-                                "Kr": ["Kr78", "Kr80", "Kr82", "Kr83", "Kr84", "Kr86"],
-                                "Rb": ["Rb85", "Rb87"],
-                                "Sr": ["Sr84", "Sr86", "Sr87", "Sr88"],
-                                "Y": ["Y89"],
-                                "Zr": ["Zr90", "Zr91", "Zr92", "Zr94", "Zr96"],
-                                "Nb": ["Nb93"],
-                                "Mo": ["Mo92", "Mo94", "Mo95", "Mo96", "Mo97", "Mo98", "Mo100"],
-                                "Ru": ["Ru96", "Ru98", "Ru99", "Ru100", "Ru101", "Ru102", "Ru104"],
-                                "Rh": ["Rh103"],
-                                "Pd": ["Pd102", "Pd104", "Pd105", "Pd106", "Pd108", "Pd110"],
-                                "Ag": ["Ag107", "Ag109"],
-                                "Cd": ["Cd106", "Cd108", "Cd110", "Cd111", "Cd112", "Cd113", "Cd114", "Cd116"],
-                                "In": ["In113", "In115"],
-                                "Sn": ["Sn112", "Sn114", "Sn115", "Sn116", "Sn117", "Sn118", "Sn119", "Sn120", "Sn122", "Sn124"],
-                                "Sb": ["Sb121", "Sb123"],
-                                "Te": ["Te120", "Te122", "Te123", "Te124", "Te125", "Te126", "Te128", "Te130"],
-                                "I": ["I127"],
-                                "Xe": ["Xe124", "Xe126", "Xe128", "Xe129", "Xe130", "Xe131", "Xe132", "Xe134", "Xe136"],
-                                "Cs": ["Cs133"],
-                                "Ba": ["Ba130", "Ba132", "Ba134", "Ba135", "Ba136", "Ba137", "Ba138"],
-                                "La": ["La138", "La139"],
-                                "Ce": ["Ce136", "Ce138", "Ce140", "Ce142"],
-                                "Pr": ["Pr141"],
-                                "Nd": ["Nd142", "Nd143", "Nd144", "Nd145", "Nd146", "Nd148", "Nd150"],
-                                "Sm": ["Sm144", "Sm147", "Sm148", "Sm149", "Sm150", "Sm152", "Sm154"],
-                                "Eu": ["Eu151", "Eu153"],
-                                "Gd": ["Gd152", "Gd154", "Gd155", "Gd156", "Gd157", "Gd158", "Gd160"],
-                                "Tb": ["Tb159"],
-                                "Dy": ["Dy156", "Dy158", "Dy160", "Dy161", "Dy162", "Dy163", "Dy164"],
-                                "Ho": ["Ho165"],
-                                "Er": ["Er162", "Er164", "Er166", "Er167", "Er168", "Er170"],
-                                "Tm": ["Tm169"],
-                                "Yb": ["Yb168", "Yb170", "Yb171", "Yb172", "Yb173", "Yb174", "Yb176"],
-                                "Lu": ["Lu175", "Lu176"],
-                                "Hf": ["Hf174", "Hf176", "Hf177", "Hf178", "Hf179", "Hf180"],
-                                "Ta": ["Ta180_m1", "Ta181"],
-                                "W": ["W180", "W182", "W183", "W184", "W186"],
-                                "Re": ["Re185", "Re187"],
-                                "Os": ["Os184", "Os186", "Os187", "Os188", "Os189", "Os190", "Os192"],
-                                "Ir": ["Ir191", "Ir193"],
-                                "Pt": ["Pt190", "Pt192", "Pt194", "Pt195", "Pt196", "Pt198"],
-                                "Au": ["Au197"],
-                                "Hg": ["Hg196", "Hg198", "Hg199", "Hg200", "Hg201", "Hg202", "Hg204"],
-                                "Tl": ["Tl203", "Tl205"],
-                                "Pb": ["Pb204", "Pb206", "Pb207", "Pb208"],
-                                "Bi": ["Bi209"],
-                                "Th": ["Th230", "Th232"],
-                                "Pa": ["Pa231"],
-                                "U": ["U234", "U235", "U238"]
-                            };
                             if (elementNuclides[element.name]) {
                                 for (const nuclide of elementNuclides[element.name]) {
                                     await loadNuclideData(nuclide);
@@ -432,288 +433,141 @@
             updatePlot();
         }
 
-        // Calculate cross sections for a material
-        async function calculateCrossSections(material, materialId, materialName) {
-            try {
-                // Calculate macroscopic cross sections
-                const macroXS = await material.calculate_macroscopic_xs_neutron();
-                
-                // Calculate total cross section
-                const totalXS = await material.calculate_total_xs_neutron();
-                
-                // Store the cross section data
-                materialData[materialId] = {
-                    name: materialName,
-                    energyGrid: macroXS.energy_grid,
-                    crossSections: {
-                        ...macroXS.cross_sections,
-                        ...totalXS.cross_sections
-                    },
-                    // Store the available reactions for this material
-                    availableReactions: new Set(
-                        ['total', ...Object.keys(macroXS.cross_sections)]
-                    )
-                };
-                
-                return true;
-            } catch (error) {
-                console.error(`Error calculating cross sections for ${materialId}:`, error);
-                return false;
-            }
-        }
         
         // Add a new reaction row
-        function addReactionRow() {
-            const reactionsContainer = document.getElementById('reactions-container');
-            const rowId = Date.now(); // Unique ID for the row
-            
-            const row = document.createElement('div');
-            row.className = 'reaction-row';
-            row.id = `reaction-row-${rowId}`;
-            
-            // Create material select with labels
-            const materialLabel = document.createElement('div');
-            materialLabel.className = 'reaction-label';
-            materialLabel.textContent = 'Material:';
-            
-            const materialSelect = document.createElement('select');
-            materialSelect.className = 'material-select';
-            materialSelect.dataset.rowId = rowId;
-            materialSelect.innerHTML = Object.entries(materialDefinitions)
-                .map(([id, def]) => `<option value="${id}">${def.name}</option>`)
-                .join('');
-            
-            // Create reaction select with labels
-            const reactionLabel = document.createElement('div');
-            reactionLabel.className = 'reaction-label';
-            reactionLabel.textContent = 'Reaction:';
-            
-            const reactionSelect = document.createElement('select');
-            reactionSelect.className = 'reaction-select';
-            reactionSelect.dataset.rowId = rowId;
-            
-            // Create delete button
-            const deleteBtn = document.createElement('span');
-            deleteBtn.className = 'reaction-delete';
-            deleteBtn.textContent = '✖';
-            deleteBtn.dataset.rowId = rowId;
-            deleteBtn.addEventListener('click', () => {
-                document.getElementById(`reaction-row-${rowId}`).remove();
-                updatePlot();
-            });
-            
-            // Create material container
-            const materialContainer = document.createElement('div');
-            materialContainer.appendChild(materialLabel);
-            materialContainer.appendChild(materialSelect);
-            
-            // Create reaction container
-            const reactionContainer = document.createElement('div');
-            reactionContainer.appendChild(reactionLabel);
-            reactionContainer.appendChild(reactionSelect);
-            
-            // Combine elements
-            row.appendChild(materialContainer);
-            row.appendChild(reactionContainer);
-            row.appendChild(deleteBtn);
-            
-            reactionsContainer.appendChild(row);
-            
-            // Update the available reactions for the selected material
-            async function updateAvailableReactions() {
-                const materialId = materialSelect.value;
-                let material = materialData[materialId];
-                
-                // If the material data isn't loaded yet, load it now
-                if (!material || !material.availableReactions) {
-                    console.log(`Loading material data for ${materialId}...`);
-                    
-                    // Show loading indicator
-                    document.getElementById('loading').style.display = 'block';
-                    
-                    // Get the material definition
-                    const materialDef = materialDefinitions[materialId];
-                    
-                    // Create the material in WASM
-                    const wasmMaterial = new WasmMaterial();
-                    
-                    // Load and add nuclides
-                    if (Array.isArray(materialDef.nuclides)) {
-                        for (const nuclide of materialDef.nuclides) {
-                            await loadNuclideData(nuclide.name);
-                            wasmMaterial.add_nuclide(nuclide.name, nuclide.fraction);
-                        }
-                    }
-                    // Load and add elements
-                    if (Array.isArray(materialDef.elements)) {
-                        for (const element of materialDef.elements) {
-                            // For natural abundance elements, WASM will expand to nuclides
-                            // Load all nuclide data for the element before adding
-                            const elementNuclides = {
-                                "H": ["H1", "H2"],
-                                "He": ["He3", "He4"],
-                                "Li": ["Li6", "Li7"],
-                                "Be": ["Be9"],
-                                "B": ["B10", "B11"],
-                                "C": ["C12", "C13"],
-                                "N": ["N14", "N15"],
-                                "O": ["O16", "O17", "O18"],
-                                "F": ["F19"],
-                                "Ne": ["Ne20", "Ne21", "Ne22"],
-                                "Na": ["Na23"],
-                                "Mg": ["Mg24", "Mg25", "Mg26"],
-                                "Al": ["Al27"],
-                                "Si": ["Si28", "Si29", "Si30"],
-                                "P": ["P31"],
-                                "S": ["S32", "S33", "S34", "S36"],
-                                "Cl": ["Cl35", "Cl37"],
-                                "Ar": ["Ar36", "Ar38", "Ar40"],
-                                "K": ["K39", "K40", "K41"],
-                                "Ca": ["Ca40", "Ca42", "Ca43", "Ca44", "Ca46", "Ca48"],
-                                "Sc": ["Sc45"],
-                                "Ti": ["Ti46", "Ti47", "Ti48", "Ti49", "Ti50"],
-                                "V": ["V50", "V51"],
-                                "Cr": ["Cr50", "Cr52", "Cr53", "Cr54"],
-                                "Mn": ["Mn55"],
-                                "Fe": ["Fe54", "Fe56", "Fe57", "Fe58"],
-                                "Co": ["Co59"],
-                                "Ni": ["Ni58", "Ni60", "Ni61", "Ni62", "Ni64"],
-                                "Cu": ["Cu63", "Cu65"],
-                                "Zn": ["Zn64", "Zn66", "Zn67", "Zn68", "Zn70"],
-                                "Ga": ["Ga69", "Ga71"],
-                                "Ge": ["Ge70", "Ge72", "Ge73", "Ge74", "Ge76"],
-                                "As": ["As75"],
-                                "Se": ["Se74", "Se76", "Se77", "Se78", "Se80", "Se82"],
-                                "Br": ["Br79", "Br81"],
-                                "Kr": ["Kr78", "Kr80", "Kr82", "Kr83", "Kr84", "Kr86"],
-                                "Rb": ["Rb85", "Rb87"],
-                                "Sr": ["Sr84", "Sr86", "Sr87", "Sr88"],
-                                "Y": ["Y89"],
-                                "Zr": ["Zr90", "Zr91", "Zr92", "Zr94", "Zr96"],
-                                "Nb": ["Nb93"],
-                                "Mo": ["Mo92", "Mo94", "Mo95", "Mo96", "Mo97", "Mo98", "Mo100"],
-                                "Ru": ["Ru96", "Ru98", "Ru99", "Ru100", "Ru101", "Ru102", "Ru104"],
-                                "Rh": ["Rh103"],
-                                "Pd": ["Pd102", "Pd104", "Pd105", "Pd106", "Pd108", "Pd110"],
-                                "Ag": ["Ag107", "Ag109"],
-                                "Cd": ["Cd106", "Cd108", "Cd110", "Cd111", "Cd112", "Cd113", "Cd114", "Cd116"],
-                                "In": ["In113", "In115"],
-                                "Sn": ["Sn112", "Sn114", "Sn115", "Sn116", "Sn117", "Sn118", "Sn119", "Sn120", "Sn122", "Sn124"],
-                                "Sb": ["Sb121", "Sb123"],
-                                "Te": ["Te120", "Te122", "Te123", "Te124", "Te125", "Te126", "Te128", "Te130"],
-                                "I": ["I127"],
-                                "Xe": ["Xe124", "Xe126", "Xe128", "Xe129", "Xe130", "Xe131", "Xe132", "Xe134", "Xe136"],
-                                "Cs": ["Cs133"],
-                                "Ba": ["Ba130", "Ba132", "Ba134", "Ba135", "Ba136", "Ba137", "Ba138"],
-                                "La": ["La138", "La139"],
-                                "Ce": ["Ce136", "Ce138", "Ce140", "Ce142"],
-                                "Pr": ["Pr141"],
-                                "Nd": ["Nd142", "Nd143", "Nd144", "Nd145", "Nd146", "Nd148", "Nd150"],
-                                "Sm": ["Sm144", "Sm147", "Sm148", "Sm149", "Sm150", "Sm152", "Sm154"],
-                                "Eu": ["Eu151", "Eu153"],
-                                "Gd": ["Gd152", "Gd154", "Gd155", "Gd156", "Gd157", "Gd158", "Gd160"],
-                                "Tb": ["Tb159"],
-                                "Dy": ["Dy156", "Dy158", "Dy160", "Dy161", "Dy162", "Dy163", "Dy164"],
-                                "Ho": ["Ho165"],
-                                "Er": ["Er162", "Er164", "Er166", "Er167", "Er168", "Er170"],
-                                "Tm": ["Tm169"],
-                                "Yb": ["Yb168", "Yb170", "Yb171", "Yb172", "Yb173", "Yb174", "Yb176"],
-                                "Lu": ["Lu175", "Lu176"],
-                                "Hf": ["Hf174", "Hf176", "Hf177", "Hf178", "Hf179", "Hf180"],
-                                "Ta": ["Ta180_m1", "Ta181"],
-                                "W": ["W180", "W182", "W183", "W184", "W186"],
-                                "Re": ["Re185", "Re187"],
-                                "Os": ["Os184", "Os186", "Os187", "Os188", "Os189", "Os190", "Os192"],
-                                "Ir": ["Ir191", "Ir193"],
-                                "Pt": ["Pt190", "Pt192", "Pt194", "Pt195", "Pt196", "Pt198"],
-                                "Au": ["Au197"],
-                                "Hg": ["Hg196", "Hg198", "Hg199", "Hg200", "Hg201", "Hg202", "Hg204"],
-                                "Tl": ["Tl203", "Tl205"],
-                                "Pb": ["Pb204", "Pb206", "Pb207", "Pb208"],
-                                "Bi": ["Bi209"],
-                                "Th": ["Th230", "Th232"],
-                                "Pa": ["Pa231"],
-                                "U": ["U234", "U235", "U238"]
-                            };
-                            if (elementNuclides[element.name]) {
-                                for (const nuclide of elementNuclides[element.name]) {
-                                    await loadNuclideData(nuclide);
-                                }
-                            }
-                            wasmMaterial.add_element(element.name, element.fraction);
-                        }
-                    }
-                    
-                    // Set density
-                    wasmMaterial.set_density(materialDef.density.unit, materialDef.density.value);
-                    
-                    // Calculate cross sections
-                    await calculateCrossSections(wasmMaterial, materialId, materialDef.name);
-                    
-                    // Update our local reference
-                    material = materialData[materialId];
-                    
-                    // Hide loading indicator
-                    document.getElementById('loading').style.display = 'none';
-                }
-                
-                // Save the current selection if possible
-                const currentSelection = reactionSelect.value;
-                
-                // Clear and rebuild the reaction select options
-                reactionSelect.innerHTML = '';
-                // Add a blank option for 'none' (default)
-                const blankOption = document.createElement('option');
-                blankOption.value = '';
-                blankOption.textContent = '-- Select Reaction --';
-                reactionSelect.appendChild(blankOption);
+async function addReactionRow() {
+    const reactionsContainer = document.getElementById('reactions-container');
+    // Create a new reaction row
+    const row = document.createElement('div');
+    row.className = 'reaction-row';
 
-                // Get all available reactions for this material and sort them
-                const availableReactions = Array.from(material.availableReactions);
-                availableReactions.sort((a, b) => {
-                    // Always put "total" first
-                    if (a === 'total') return -1;
-                    if (b === 'total') return 1;
-                    // Then sort numerically
-                    return parseInt(a) - parseInt(b);
-                });
+    // Material select
+    const materialSelect = document.createElement('select');
+    materialSelect.className = 'material-select';
+    for (const [materialId, materialDef] of Object.entries(materialDefinitions)) {
+        const option = document.createElement('option');
+        option.value = materialId;
+        option.textContent = materialDef.name;
+        materialSelect.appendChild(option);
+    }
 
-                // Add options for each available reaction
-                availableReactions.forEach(rxId => {
-                    const option = document.createElement('option');
-                    option.value = rxId;
-                    // For display, use "Total" for total reaction or "MT X" for others
-                    option.textContent = rxId === 'total' ? 'Total' : `MT ${rxId}`;
-                    reactionSelect.appendChild(option);
-                });
+    // Reaction select
+    const reactionSelect = document.createElement('select');
+    reactionSelect.className = 'reaction-select';
+    // Will populate after material is selected
 
-                // Try to restore previous selection if it's still valid (and not blank)
-                if (currentSelection && Array.from(reactionSelect.options).some(opt => opt.value === currentSelection)) {
-                    reactionSelect.value = currentSelection;
-                } else {
-                    // Default to blank (none selected)
-                    reactionSelect.value = '';
-                }
+    // Delete button
+    const deleteBtn = document.createElement('span');
+    deleteBtn.className = 'reaction-delete';
+    deleteBtn.textContent = '✖';
+    deleteBtn.title = 'Remove this reaction';
+    deleteBtn.onclick = function() {
+        row.remove();
+        updatePlot();
+    };
 
-                updatePlot();
+    // Add to row
+    row.appendChild(materialSelect);
+    row.appendChild(reactionSelect);
+    row.appendChild(deleteBtn);
+    reactionsContainer.appendChild(row);
+
+    // When a reaction is selected, update the plot
+    reactionSelect.addEventListener('change', updatePlot);
+
+    // When a material is selected, load its nuclide data and update reactions
+    materialSelect.addEventListener('change', async function() {
+        const materialId = materialSelect.value;
+        const materialDef = materialDefinitions[materialId];
+        console.log('[Material Change] Selected materialId:', materialId, 'materialDef:', materialDef);
+        // Load nuclide data for this material only
+        if (Array.isArray(materialDef.nuclides)) {
+            for (const nuclide of materialDef.nuclides) {
+                console.log('[Nuclide Load] Loading nuclide:', nuclide.name);
+                await loadNuclideData(nuclide.name);
             }
-            
-            // Add event listeners for selects
-            materialSelect.addEventListener('change', () => {
-                updateAvailableReactions().catch(error => {
-                    console.error('Error updating available reactions:', error);
-                });
-            });
-            reactionSelect.addEventListener('change', updatePlot);
-            
-            // Set defaults for first row (pure li6, total)
-            materialSelect.value = 'pure_li6';
-            
-            // Initialize the reaction select based on the default material
-            updateAvailableReactions().catch(error => {
-                console.error('Error initializing available reactions:', error);
-            });
         }
+        if (Array.isArray(materialDef.elements)) {
+            for (const element of materialDef.elements) {
+                console.log('[Element Load] Loading element:', element.name);
+                if (elementNuclides[element.name]) {
+                    for (const nuclide of elementNuclides[element.name]) {
+                        console.log('[Nuclide Load] Loading nuclide from element:', nuclide);
+                        await loadNuclideData(nuclide);
+                    }
+                }
+            }
+        }
+
+        // Only call await loadNuclideData for each nuclide before creating WasmMaterial
+        // (already done above, so just proceed)
+        // Create a WASM material to get available reactions
+        const wasmMaterial = new WasmMaterial();
+        if (Array.isArray(materialDef.nuclides)) {
+            for (const nuclide of materialDef.nuclides) {
+                wasmMaterial.add_nuclide(nuclide.name, nuclide.fraction);
+                console.log('[WASM] Added nuclide:', nuclide.name, 'fraction:', nuclide.fraction);
+            }
+        }
+        if (Array.isArray(materialDef.elements)) {
+            for (const element of materialDef.elements) {
+                wasmMaterial.add_element(element.name, element.fraction);
+                console.log('[WASM] Added element:', element.name, 'fraction:', element.fraction);
+            }
+        }
+        wasmMaterial.set_density(materialDef.density.unit, materialDef.density.value);
+        console.log('[WASM] Set density:', materialDef.density.unit, materialDef.density.value);
+
+        // Ensure backend is initialized by calculating total xs before getting available MTs
+        try {
+            await wasmMaterial.calculate_total_xs_neutron();
+            console.log('[WASM] calculate_total_xs_neutron() succeeded');
+        } catch (e) {
+            console.warn('[WASM] calculate_total_xs_neutron() failed (may be ok):', e);
+        }
+
+        // Get available MTs (reaction types)
+        let mts = [];
+        try {
+            mts = wasmMaterial.reaction_mts();
+            console.log('[WASM] reaction_mts() raw result:', mts, 'type:', typeof mts, 'length:', mts.length);
+            // Convert to plain array if needed
+            if (mts && typeof mts.length === 'number' && !Array.isArray(mts)) {
+                mts = Array.from(mts);
+                console.log('[WASM] reaction_mts() converted to array:', mts);
+            }
+        } catch (e) {
+            console.error('[WASM] Error calling reaction_mts:', e);
+            mts = [];
+        }
+
+        // Populate the reaction dropdown
+        reactionSelect.innerHTML = '';
+        // Always add 'Total' as the first option
+        const totalOption = document.createElement('option');
+        totalOption.value = 'total';
+        totalOption.textContent = 'Total';
+        reactionSelect.appendChild(totalOption);
+        // Add MTs
+        if (mts && mts.length > 0) {
+            for (const mt of mts) {
+                console.log('[Dropdown] Adding MT option:', mt);
+                const opt = document.createElement('option');
+                opt.value = mt;
+                opt.textContent = `MT ${mt}`;
+                reactionSelect.appendChild(opt);
+            }
+        } else {
+            console.warn('[Dropdown] No MTs found for material:', materialId);
+        }
+
+        updatePlot();
+    });
+
+    // Trigger initial load for the default selected material
+    materialSelect.dispatchEvent(new Event('change'));
+    updatePlot();
+}
         
         // Update the plot based on selected reactions
         async function updatePlot() {
@@ -727,32 +581,72 @@
             for (const row of rows) {
                 const materialSelect = row.querySelector('.material-select');
                 const reactionSelect = row.querySelector('.reaction-select');
-                
                 const materialId = materialSelect.value;
                 const mt = reactionSelect.value;
-                
-                // If material data isn't loaded, trigger a load by calling updateAvailableReactions
-                if (!materialData[materialId]) {
-                    // Skip this row for now - data will be loaded when updateAvailableReactions is called
+                if (!materialId || !mt) continue;
+                // If we already have the XS for this (material, mt), use it
+                if (materialData[materialId] && materialData[materialId].crossSections[mt]) {
+                    const material = materialData[materialId];
+                    plotData.push({
+                        x: material.energyGrid,
+                        y: material.crossSections[mt],
+                        type: 'scatter',
+                        mode: 'lines',
+                        name: `${material.name} - ${mt === 'total' ? 'Total' : `MT ${mt}`}`
+                    });
                     continue;
                 }
-                
-                const material = materialData[materialId];
-                
-                // Skip if material doesn't have the selected reaction
-                if (!material.crossSections[mt]) {
-                    console.warn(`No data for ${material?.name} MT ${mt}`);
-                    continue;
+                // Otherwise, calculate it now and cache it
+                const materialDef = materialDefinitions[materialId];
+                const wasmMaterial = new WasmMaterial();
+                if (Array.isArray(materialDef.nuclides)) {
+                    for (const nuclide of materialDef.nuclides) {
+                        await loadNuclideData(nuclide.name);
+                        wasmMaterial.add_nuclide(nuclide.name, nuclide.fraction);
+                    }
                 }
-                
-                // Create a trace for Plotly
-                plotData.push({
-                    x: material.energyGrid,
-                    y: material.crossSections[mt],
-                    type: 'scatter',
-                    mode: 'lines',
-                    name: `${material.name} - ${mt === 'total' ? 'Total' : `MT ${mt}`}`
-                });
+                if (Array.isArray(materialDef.elements)) {
+                    for (const element of materialDef.elements) {
+                        if (elementNuclides[element.name]) {
+                            for (const nuclide of elementNuclides[element.name]) {
+                                await loadNuclideData(nuclide);
+                            }
+                        }
+                        wasmMaterial.add_element(element.name, element.fraction);
+                    }
+                }
+                wasmMaterial.set_density(materialDef.density.unit, materialDef.density.value);
+                let xsResult = null;
+                let energyGrid = null;
+                try {
+                    if (mt === 'total') {
+                        console.log(`Calling calculate_total_xs_neutron for materialId=${materialId}, name=${materialDef.name}`);
+                        xsResult = await wasmMaterial.calculate_total_xs_neutron();
+                        // total_xs_neutron returns { energy_grid, cross_sections: { total: [...] } }
+                        energyGrid = xsResult.energy_grid;
+                        if (!materialData[materialId]) materialData[materialId] = { name: materialDef.name, energyGrid: null, crossSections: {}, availableReactions: new Set() };
+                        materialData[materialId].energyGrid = energyGrid;
+                        materialData[materialId].crossSections[mt] = xsResult.cross_sections[mt];
+                    } else {
+                        // For non-total, call calculate_macroscopic_xs_neutron with the MT number
+                        console.log(`Calling calculate_macroscopic_xs_neutron for materialId=${materialId}, name=${materialDef.name}, mt=${mt}`);
+                        xsResult = await wasmMaterial.calculate_macroscopic_xs_neutron(mt);
+                        // macroscopic_xs_neutron returns { energy_grid, cross_sections: { [mt]: [...] } }
+                        energyGrid = xsResult.energy_grid;
+                        if (!materialData[materialId]) materialData[materialId] = { name: materialDef.name, energyGrid: null, crossSections: {}, availableReactions: new Set() };
+                        materialData[materialId].energyGrid = energyGrid;
+                        materialData[materialId].crossSections[mt] = xsResult.cross_sections[mt];
+                    }
+                    plotData.push({
+                        x: energyGrid,
+                        y: xsResult.cross_sections[mt],
+                        type: 'scatter',
+                        mode: 'lines',
+                        name: `${materialDef.name} - ${mt === 'total' ? 'Total' : `MT ${mt}`}`
+                    });
+                } catch (e) {
+                    console.warn(`No data for ${materialDef?.name} MT ${mt}`);
+                }
             }
             
             // Get the selected scale options
