@@ -662,7 +662,12 @@
                 
                 // Clear and rebuild the reaction select options
                 reactionSelect.innerHTML = '';
-                
+                // Add a blank option for 'none' (default)
+                const blankOption = document.createElement('option');
+                blankOption.value = '';
+                blankOption.textContent = '-- Select Reaction --';
+                reactionSelect.appendChild(blankOption);
+
                 // Get all available reactions for this material and sort them
                 const availableReactions = Array.from(material.availableReactions);
                 availableReactions.sort((a, b) => {
@@ -672,7 +677,7 @@
                     // Then sort numerically
                     return parseInt(a) - parseInt(b);
                 });
-                
+
                 // Add options for each available reaction
                 availableReactions.forEach(rxId => {
                     const option = document.createElement('option');
@@ -681,15 +686,15 @@
                     option.textContent = rxId === 'total' ? 'Total' : `MT ${rxId}`;
                     reactionSelect.appendChild(option);
                 });
-                
-                // Try to restore previous selection if it's still valid
-                if (Array.from(reactionSelect.options).some(opt => opt.value === currentSelection)) {
+
+                // Try to restore previous selection if it's still valid (and not blank)
+                if (currentSelection && Array.from(reactionSelect.options).some(opt => opt.value === currentSelection)) {
                     reactionSelect.value = currentSelection;
-                } else if (reactionSelect.options.length > 0) {
-                    // Default to first available option
-                    reactionSelect.selectedIndex = 0;
+                } else {
+                    // Default to blank (none selected)
+                    reactionSelect.value = '';
                 }
-                
+
                 updatePlot();
             }
             
