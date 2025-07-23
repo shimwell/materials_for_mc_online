@@ -568,7 +568,10 @@ async function addReactionRow() {
         console.warn('[Dropdown] No MTs found for material:', materialId);
     }
 
-        updatePlot();
+    // Reset the reaction dropdown to the default option
+    reactionSelect.value = '';
+    // Update the plot to reflect the cleared selection
+    updatePlot();
     });
 
     // Trigger initial load for the default selected material
