@@ -323,6 +323,28 @@
         // Cross section data storage
         const materialData = {};
         
+        // Simple JSON cache to avoid refetching nuclide data
+        const nuclideJsonCache = new Map();
+
+        // Fetch and cache JSON content for a nuclide, return raw JSON string
+        async function getNuclideJson(nuclide) {
+            if (nuclideJsonCache.has(nuclide)) return nuclideJsonCache.get(nuclide);
+            const filePath = `./xs_data/${nuclide}.json`;
+            const response = await fetch(filePath);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch ${filePath}: ${response.status} ${response.statusText}`);
+            }
+            const jsonContent = await response.text();
+            nuclideJsonCache.set(nuclide, jsonContent);
+            return jsonContent;
+        }
+
+        // Load nuclide data from GitHub URL
+        async function loadNuclideData(nuclide) {
+            // Deprecated: kept for backward compatibility, now returns cached JSON
+            return getNuclideJson(nuclide);
+        }
+
         // Initialize the application
         async function init_app() {
             // Load materials.json
@@ -350,86 +372,37 @@
             addReactionRow();
         }
 
-        // Load nuclide data from GitHub URL
-        async function loadNuclideData(nuclide) {
-            // If we've already loaded this nuclide, don't load it again
-            if (window.loadedNuclides && window.loadedNuclides.has(nuclide)) {
-                return;
-            }
-            
-            // Initialize loaded nuclides tracking set if it doesn't exist
-            if (!window.loadedNuclides) {
-                window.loadedNuclides = new Set();
-            }
-            
-            // Local JSON file path (xs_data folder)
-            const baseUrl = "./xs_data/";
-            const filePath = `${baseUrl}${nuclide}.json`;
-            
-            try {
-                // Fetch the JSON file from GitHub
-                const response = await fetch(filePath);
-                if (!response.ok) {
-                    throw new Error(`Failed to fetch ${filePath}: ${response.statusText}`);
-                }
-                
-                // Get the JSON content as text
-                const jsonContent = await response.text();
-                
-                // Set the nuclide data in the WASM module
-                WasmConfig.set_nuclide_data(nuclide, jsonContent);
-                
-                // Mark this nuclide as loaded
-                window.loadedNuclides.add(nuclide);
-                
-                console.log(`Loaded nuclide data for ${nuclide} from GitHub`);
-            } catch (error) {
-                console.error(`Error loading nuclide data for ${nuclide}:`, error);
-            }
-        }
-
         // Load all materials upfront
         async function loadAllMaterials() {
             document.getElementById('loading').style.display = 'block';
-            
-            // Process each material
             for (const [materialId, materialDef] of Object.entries(materialDefinitions)) {
                 try {
-                    // Create the material in WASM
                     const material = new WasmMaterial();
-                    
-                    // Load and add nuclides
+                    // Load + register nuclides
                     if (Array.isArray(materialDef.nuclides)) {
                         for (const nuclide of materialDef.nuclides) {
-                            await loadNuclideData(nuclide.name);
+                            const json = await getNuclideJson(nuclide.name);
+                            material.load_nuclide_data(nuclide.name, json);
                             material.add_nuclide(nuclide.name, nuclide.fraction);
                         }
                     }
-                    // Load and add elements
                     if (Array.isArray(materialDef.elements)) {
                         for (const element of materialDef.elements) {
-                            // For natural abundance elements, WASM will expand to nuclides
-                            // Load all nuclide data for the element before adding
                             if (elementNuclides[element.name]) {
-                                for (const nuclide of elementNuclides[element.name]) {
-                                    await loadNuclideData(nuclide);
+                                for (const iso of elementNuclides[element.name]) {
+                                    const json = await getNuclideJson(iso);
+                                    material.load_nuclide_data(iso, json);
                                 }
                             }
                             material.add_element(element.name, element.fraction);
                         }
                     }
-                    
-                    // Set density
                     material.set_density(materialDef.density.unit, materialDef.density.value);
-                    
-                    // Calculate cross sections
                     await calculateCrossSections(material, materialId, materialDef.name);
-                    
                 } catch (error) {
                     console.error(`Error processing material ${materialId}:`, error);
                 }
             }
-            
             document.getElementById('loading').style.display = 'none';
             updatePlot();
         }
@@ -437,29 +410,17 @@
         // Calculate cross sections for a material
         async function calculateCrossSections(material, materialId, materialName) {
             try {
-
                 console.log(`Calculating cross sections for ${materialId} ${materialName}`);
-
-                // Get all MT numbers present in the material
-
-
-                // Calculate macroscopic cross sections for all MT numbers, TODO we shouldn't need to call this twice
-                await material.calculate_macroscopic_xs_neutron([1]);
+                // Ensure nuclide data is loaded (reaction_mts will trigger lazy load inside WASM)
                 const mtNumbers = await material.reaction_mts();
                 const macroXS = await material.calculate_macroscopic_xs_neutron(mtNumbers);
-
                 console.log(`MT numbers for ${materialId} ${materialName}:`, mtNumbers);
-                // Store the cross section data
                 materialData[materialId] = {
                     name: materialName,
                     energyGrid: macroXS.energy_grid,
-                    crossSections: {
-                        ...macroXS.cross_sections
-                    },
-                    // Store the available reactions for this material
+                    crossSections: { ...macroXS.cross_sections },
                     availableReactions: new Set(Object.keys(macroXS.cross_sections))
                 };
-
                 return true;
             } catch (error) {
                 console.error(`Error calculating cross sections for ${materialId}:`, error);
@@ -530,49 +491,32 @@
                 let material = materialData[materialId];
                 
                 // If the material data isn't loaded yet, load it now
-                if (!material || !material.availableReactions) {
+                if (!material || !material.reaction_mts) {
                     console.log(`Loading material data for ${materialId}...`);
-                    
-                    // Show loading indicator
                     document.getElementById('loading').style.display = 'block';
-                    
-                    // Get the material definition
                     const materialDef = materialDefinitions[materialId];
-                    
-                    // Create the material in WASM
                     const wasmMaterial = new WasmMaterial();
-                    
-                    // Load and add nuclides
                     if (Array.isArray(materialDef.nuclides)) {
                         for (const nuclide of materialDef.nuclides) {
-                            await loadNuclideData(nuclide.name);
+                            const json = await getNuclideJson(nuclide.name);
+                            wasmMaterial.load_nuclide_data(nuclide.name, json);
                             wasmMaterial.add_nuclide(nuclide.name, nuclide.fraction);
                         }
                     }
-                    // Load and add elements
                     if (Array.isArray(materialDef.elements)) {
                         for (const element of materialDef.elements) {
-                            // For natural abundance elements, WASM will expand to nuclides
-                            // Load all nuclide data for the element before adding
                             if (elementNuclides[element.name]) {
-                                for (const nuclide of elementNuclides[element.name]) {
-                                    await loadNuclideData(nuclide);
+                                for (const iso of elementNuclides[element.name]) {
+                                    const json = await getNuclideJson(iso);
+                                    wasmMaterial.load_nuclide_data(iso, json);
                                 }
                             }
                             wasmMaterial.add_element(element.name, element.fraction);
                         }
                     }
-                    
-                    // Set density
                     wasmMaterial.set_density(materialDef.density.unit, materialDef.density.value);
-                    
-                    // Calculate cross sections
                     await calculateCrossSections(wasmMaterial, materialId, materialDef.name);
-                    
-                    // Update our local reference
                     material = materialData[materialId];
-                    
-                    // Hide loading indicator
                     document.getElementById('loading').style.display = 'none';
                 }
                 
@@ -588,7 +532,7 @@
                 reactionSelect.appendChild(blankOption);
 
                 // Get all available reactions for this material and sort them numerically
-                const availableReactions = Array.from(material.availableReactions);
+                const availableReactions = Array.from(material.availableReactions || material.reaction_mts || []);
                 availableReactions.sort((a, b) => parseInt(a) - parseInt(b));
 
                 // Add options for each available reaction

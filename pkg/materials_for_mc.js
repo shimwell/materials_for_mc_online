@@ -166,66 +166,6 @@ function debugString(val) {
     // TODO we could test for more things here, like `Set`s and `Map`s.
     return className;
 }
-
-function takeFromExternrefTable0(idx) {
-    const value = wasm.__wbindgen_export_2.get(idx);
-    wasm.__externref_table_dealloc(idx);
-    return value;
-}
-
-export function wasm_start() {
-    wasm.wasm_start();
-}
-
-/**
- * @param {string} name
- * @param {string} json_path
- * @returns {WasmNuclide}
- */
-export function wasm_read_nuclide_from_json(name, json_path) {
-    const ptr0 = passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ptr1 = passStringToWasm0(json_path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len1 = WASM_VECTOR_LEN;
-    const ret = wasm.wasm_read_nuclide_from_json(ptr0, len0, ptr1, len1);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return WasmNuclide.__wrap(ret[0]);
-}
-
-/**
- * @param {string} name
- * @param {string} json_content
- * @returns {WasmNuclide}
- */
-export function wasm_read_nuclide_from_json_str(name, json_content) {
-    const ptr0 = passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ptr1 = passStringToWasm0(json_content, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len1 = WASM_VECTOR_LEN;
-    const ret = wasm.wasm_read_nuclide_from_json_str(ptr0, len0, ptr1, len1);
-    if (ret[2]) {
-        throw takeFromExternrefTable0(ret[1]);
-    }
-    return WasmNuclide.__wrap(ret[0]);
-}
-
-/**
- * @param {string} name
- * @param {string} json_content
- */
-export function wasm_set_nuclide_data(name, json_content) {
-    const ptr0 = passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ptr1 = passStringToWasm0(json_content, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len1 = WASM_VECTOR_LEN;
-    const ret = wasm.wasm_set_nuclide_data(ptr0, len0, ptr1, len1);
-    if (ret[1]) {
-        throw takeFromExternrefTable0(ret[0]);
-    }
-}
-
 /**
  * @returns {any}
  */
@@ -305,6 +245,64 @@ function passArray32ToWasm0(arg, malloc) {
     getUint32ArrayMemory0().set(arg, ptr / 4);
     WASM_VECTOR_LEN = arg.length;
     return ptr;
+}
+
+function takeFromExternrefTable0(idx) {
+    const value = wasm.__wbindgen_export_2.get(idx);
+    wasm.__externref_table_dealloc(idx);
+    return value;
+}
+/**
+ * @param {string} name
+ * @param {string} json_path
+ * @returns {WasmNuclide}
+ */
+export function wasm_read_nuclide_from_json(name, json_path) {
+    const ptr0 = passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(json_path, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.wasm_read_nuclide_from_json(ptr0, len0, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return WasmNuclide.__wrap(ret[0]);
+}
+
+/**
+ * @param {string} name
+ * @param {string} json_content
+ * @returns {WasmNuclide}
+ */
+export function wasm_read_nuclide_from_json_str(name, json_content) {
+    const ptr0 = passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(json_content, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.wasm_read_nuclide_from_json_str(ptr0, len0, ptr1, len1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return WasmNuclide.__wrap(ret[0]);
+}
+
+/**
+ * @param {string} name
+ * @param {string} json_content
+ */
+export function wasm_set_nuclide_data(name, json_content) {
+    const ptr0 = passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(json_content, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.wasm_set_nuclide_data(ptr0, len0, ptr1, len1);
+    if (ret[1]) {
+        throw takeFromExternrefTable0(ret[0]);
+    }
+}
+
+export function wasm_start() {
+    wasm.wasm_start();
 }
 
 const WasmConfigFinalization = (typeof FinalizationRegistry === 'undefined')
