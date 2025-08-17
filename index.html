@@ -410,20 +410,19 @@
         // Calculate cross sections for a material
         async function calculateCrossSections(material, materialId, materialName) {
             try {
-                console.log(`Calculating cross sections for ${materialId} ${materialName}`);
-                // Ensure nuclide data is loaded (reaction_mts will trigger lazy load inside WASM)
+                console.log(`Initializing material ${materialId} ${materialName}`);
+                // Get list of MT numbers without triggering heavy sum-rule computation
                 const mtNumbers = await material.reaction_mts();
-                const macroXS = await material.calculate_macroscopic_xs_neutron(mtNumbers);
-                console.log(`MT numbers for ${materialId} ${materialName}:`, mtNumbers);
                 materialData[materialId] = {
                     name: materialName,
-                    energyGrid: macroXS.energy_grid,
-                    crossSections: { ...macroXS.cross_sections },
-                    availableReactions: new Set(Object.keys(macroXS.cross_sections))
+                    energyGrid: null, // will be set on first on-demand calculation
+                    crossSections: {}, // filled lazily per MT
+                    availableReactions: new Set(mtNumbers.map(m => m.toString())),
+                    materialObj: material
                 };
                 return true;
             } catch (error) {
-                console.error(`Error calculating cross sections for ${materialId}:`, error);
+                console.error(`Error initializing material ${materialId}:`, error);
                 return false;
             }
         }
@@ -573,67 +572,45 @@
         
         // Update the plot based on selected reactions
         async function updatePlot() {
-            // Get all reaction rows
             const rows = document.querySelectorAll('.reaction-row');
-            if (rows.length === 0) return; // No rows yet
-            
+            if (rows.length === 0) return;
             const plotData = [];
-            
-            // Create traces for each selected reaction
             for (const row of rows) {
                 const materialSelect = row.querySelector('.material-select');
                 const reactionSelect = row.querySelector('.reaction-select');
-                
                 const materialId = materialSelect.value;
                 const mt = reactionSelect.value;
-                
-                // If material data isn't loaded, trigger a load by calling updateAvailableReactions
-                if (!materialData[materialId]) {
-                    // Skip this row for now - data will be loaded when updateAvailableReactions is called
-                    continue;
-                }
-                
+                if (!materialData[materialId] || !mt) continue;
                 const material = materialData[materialId];
-                
-                // Skip if material doesn't have the selected reaction
                 if (!material.crossSections[mt]) {
-                    console.warn(`No data for ${material?.name} MT ${mt}`);
-                    continue;
+                    try {
+                        const mtInt = parseInt(mt);
+                        if (isNaN(mtInt)) {
+                            console.warn(`Skipping non-numeric MT '${mt}'`);
+                            continue;
+                        }
+                        const res = await material.materialObj.calculate_macroscopic_xs_neutron([mtInt]);
+                        if (!material.energyGrid && res.energy_grid) material.energyGrid = res.energy_grid;
+                        Object.entries(res.cross_sections).forEach(([k,v]) => {
+                            if (!material.crossSections[k]) material.crossSections[k] = v;
+                        });
+                    } catch (e) {
+                        console.error(`Failed XS calc for ${materialId} MT ${mt}:`, e);
+                        continue;
+                    }
                 }
-                
-                // Create a trace for Plotly
+                if (!material.crossSections[mt]) continue;
                 plotData.push({
                     x: material.energyGrid,
                     y: material.crossSections[mt],
                     type: 'scatter',
                     mode: 'lines',
-                    name: `${material.name} - ${mt === 'total' ? 'Total' : `MT ${mt}`}`
+                    name: `${material.name} - MT ${mt}`
                 });
             }
-            
-            // Get the selected scale options
             const xScaleType = document.querySelector('input[name="x-scale"]:checked').value;
             const yScaleType = document.querySelector('input[name="y-scale"]:checked').value;
-            
-            // Define the layout
-            const layout = {
-                // title: 'Macroscopic Cross Sections',
-                xaxis: {
-                    title: 'Energy (eV)',
-                    type: xScaleType
-                },
-                yaxis: {
-                    title: 'Cross Section (cm⁻¹)',
-                    type: yScaleType
-                },
-                hovermode: 'closest',
-                legend: {
-                    x: 0,
-                    y: 1
-                }
-            };
-            
-            // Create the plot
+            const layout = { xaxis: { title: 'Energy (eV)', type: xScaleType }, yaxis: { title: 'Cross Section (cm⁻¹)', type: yScaleType }, hovermode: 'closest', legend: { x: 0, y: 1 } };
             Plotly.newPlot('plot', plotData, layout);
         }
         
