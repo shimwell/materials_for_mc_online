@@ -4,7 +4,7 @@ Demonstration of [Materials_for_MC](https://github.com/fusion-neutronics/materia
 
 Materials_for_MC supports WASM composition targets, when compiled to WASM the package can be accessed from a HTML webpage.
 
-This repository hosts the webpage content and the online website can be accessed here. [https://fusion-neutronics.github.io/materials_for_mc_online/](https://fusion-neutronics.github.io/materials_for_mc_online/)
+This repository hosts the webpage content and the online website can be accessed here. [https://shimwell.github.io/materials_for_mc_online/](https://shimwell.github.io/materials_for_mc_online/)
 
 
 ```bash
