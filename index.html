@@ -121,7 +121,7 @@
         }
         .reaction-row {
             display: grid;
-            grid-template-columns: 6fr 4fr auto; /* 60:40 split between material and reaction */
+            grid-template-columns: 5fr 3fr 3fr auto; /* material, library, reaction, delete */
             gap: 10px;
             align-items: center;
             margin-bottom: 6px;
@@ -193,7 +193,7 @@
         <h1>Materials Macroscopic Cross Section Plotter</h1>
         <div class="subtitle"> A collection of materials with on the fly macroscopic cross section calculation by Jon Shimwell. See my other projects on <a href="https://xsplot.com" target="_blank">xsplot.com</a> </div>
         <div class="subtitle"> Links to material definition data sources <a href="https://www.pnnl.gov/publications/compendium-material-composition-data-radiation-transport-modeling-1" target="_blank">[1]</a>, <a href="https://github.com/fusion-energy/neutronics_material_maker/tree/main/src/neutronics_material_maker/data" target="_blank">[2]</a>. </div>
-        <div class="subtitle"> Cross sections are ENDF/B-VIII.1 at 294 K. </div>
+        <div class="subtitle"> Cross sections at 294 K from the nuclear data library chosen in each row. </div>
         
         <div class="control-panel">
             <div class="control-group">
@@ -236,6 +236,7 @@
 
     <script type="module">
         import { mtLabel } from './mt_names.js';
+        import { LIBRARIES, DEFAULT_LIBRARY, libraryLabel } from './libraries.js';
 
         // Replace direct WASM usage with Web Worker interface
         const worker = new Worker('./wasmWorker.js', { type: 'module' });
@@ -284,8 +285,10 @@
         // Material definitions will be loaded from materials.json
         let materialDefinitions = {};
 
-        // Cross section data storage, keyed by material id
+        // Cross section data storage, keyed by library and material id: the
+        // same material from two libraries is two entries with two grids
         const materialData = {};
+        const materialKey = (materialId, library) => `${library}/${materialId}`;
 
         const errorDiv = document.getElementById('error');
         function showError(message) {
@@ -333,27 +336,29 @@
             addReactionRow();
         }
 
-        async function ensureMaterial(materialId) {
-            if (materialData[materialId]) return materialData[materialId];
+        async function ensureMaterial(materialId, library) {
+            const key = materialKey(materialId, library);
+            if (materialData[key]) return materialData[key];
             const def = materialDefinitions[materialId];
             if (!def) throw new Error(`Material def missing ${materialId}`);
-            showBusy(`Creating material ${materialId}...`);
+            showBusy(`Creating material ${materialId} from ${libraryLabel(library)}...`);
             try {
-                const mtsMsg = await sendWorker('create_material', { materialId, materialDef: def });
+                const mtsMsg = await sendWorker('create_material', { materialId, materialDef: def, library });
                 const mts = Array.isArray(mtsMsg.mts) ? mtsMsg.mts : [];
-                console.log(`Material ${materialId} created; MT count:`, mts.length, mts);
-                materialData[materialId] = {
+                console.log(`Material ${materialId} (${library}) created; MT count:`, mts.length, mts);
+                materialData[key] = {
                     name: def.name,
+                    library,
                     energyGrid: null,
                     crossSections: {},
                     availableReactions: new Set(mts.map(m => m.toString()))
                 };
             } catch (err) {
                 console.error('ensureMaterial failed', err);
-                showError(`Could not load ${def.name}: ${err.message}`);
+                showError(`Could not load ${def.name} from ${libraryLabel(library)}: ${err.message}`);
                 throw err;
             } finally { hideBusy(); }
-            return materialData[materialId];
+            return materialData[key];
         }
 
         // Add a new reaction row
@@ -377,6 +382,19 @@
                 .map(([id, def]) => `<option value="${id}">${def.name}</option>`)
                 .join('');
             
+            // Create library select with labels
+            const libraryLabelDiv = document.createElement('div');
+            libraryLabelDiv.className = 'reaction-label';
+            libraryLabelDiv.textContent = 'Library:';
+
+            const librarySelect = document.createElement('select');
+            librarySelect.className = 'library-select';
+            librarySelect.dataset.rowId = rowId;
+            librarySelect.innerHTML = LIBRARIES
+                .map(lib => `<option value="${lib.id}">${lib.label}</option>`)
+                .join('');
+            librarySelect.value = DEFAULT_LIBRARY;
+
             // Create reaction select with labels
             const reactionLabel = document.createElement('div');
             reactionLabel.className = 'reaction-label';
@@ -401,6 +419,11 @@
             materialContainer.appendChild(materialLabel);
             materialContainer.appendChild(materialSelect);
             
+            // Create library container
+            const libraryContainer = document.createElement('div');
+            libraryContainer.appendChild(libraryLabelDiv);
+            libraryContainer.appendChild(librarySelect);
+
             // Create reaction container
             const reactionContainer = document.createElement('div');
             reactionContainer.appendChild(reactionLabel);
@@ -408,17 +431,20 @@
             
             // Combine elements
             row.appendChild(materialContainer);
+            row.appendChild(libraryContainer);
             row.appendChild(reactionContainer);
             row.appendChild(deleteBtn);
             
             reactionsContainer.appendChild(row);
             
-            // Update the available reactions for the selected material
+            // Update the available reactions for the selected material and
+            // library; the libraries do not all publish the same reactions
             async function updateAvailableReactions() {
                 const materialId = materialSelect.value;
+                const library = librarySelect.value;
                 showBusy('Loading material reactions...');
                 try {
-                    const material = await ensureMaterial(materialId);
+                    const material = await ensureMaterial(materialId, library);
                     const currentSelection = reactionSelect.value;
                     reactionSelect.innerHTML = '';
                     const blankOption = document.createElement('option');
@@ -446,11 +472,13 @@
             }
             
             // Add event listeners for selects
-            materialSelect.addEventListener('change', () => {
-                updateAvailableReactions().catch(error => {
-                    console.error('Error updating available reactions:', error);
+            for (const select of [materialSelect, librarySelect]) {
+                select.addEventListener('change', () => {
+                    updateAvailableReactions().catch(error => {
+                        console.error('Error updating available reactions:', error);
+                    });
                 });
-            });
+            }
             reactionSelect.addEventListener('change', updatePlot);
             
             // Set defaults for first row (pure li6, total)
@@ -470,10 +498,11 @@
             const tasks = [];
             for (const row of rows) {
                 const materialId = row.querySelector('.material-select').value;
+                const library = row.querySelector('.library-select').value;
                 const mt = row.querySelector('.reaction-select').value;
                 if (!materialId || !mt) continue;
-                const mat = materialData[materialId];
-                if (!mat || !mat.crossSections[mt]) tasks.push({ materialId, mt });
+                const mat = materialData[materialKey(materialId, library)];
+                if (!mat || !mat.crossSections[mt]) tasks.push({ materialId, library, mt });
             }
             let completed = 0;
             if (tasks.length) showBusy(`Computing cross sections 0/${tasks.length}...`);
@@ -481,25 +510,26 @@
             const traceMts = [];
             for (const row of rows) {
                 const materialSelect = row.querySelector('.material-select');
+                const librarySelect = row.querySelector('.library-select');
                 const reactionSelect = row.querySelector('.reaction-select');
-                const materialId = materialSelect.value; const mt = reactionSelect.value;
+                const materialId = materialSelect.value; const library = librarySelect.value; const mt = reactionSelect.value;
                 if (!materialId || !mt) continue;
                 try {
-                    const mat = await ensureMaterial(materialId);
+                    const mat = await ensureMaterial(materialId, library);
                     if (!mat.crossSections[mt]) {
                         const mtInt = parseInt(mt); if (isNaN(mtInt)) continue;
-                        const res = await sendWorker('calc_xs', { materialId, mts: [mtInt] });
+                        const res = await sendWorker('calc_xs', { materialId, mts: [mtInt], library });
                         if (!mat.energyGrid && res.energy_grid) mat.energyGrid = res.energy_grid;
                         Object.entries(res.cross_sections || {}).forEach(([k,v])=>{ if(!mat.crossSections[k]) mat.crossSections[k]=v; });
                         completed++; if (tasks.length) updateBusyMessage(`Computing cross sections ${completed}/${tasks.length}...`);
                         clearError();
                     }
                     if (!mat.crossSections[mt]) continue;
-                    plotData.push({ x: mat.energyGrid, y: mat.crossSections[mt], type:'scatter', mode:'lines', name: `${mat.name} - MT ${mt}` });
+                    plotData.push({ x: mat.energyGrid, y: mat.crossSections[mt], type:'scatter', mode:'lines', name: `${mat.name} - MT ${mt} - ${libraryLabel(library)}` });
                     traceMts.push(Number(mt));
                 } catch(err) {
                     console.error('Plot update XS error', err);
-                    showError(`Could not compute MT ${mt} for ${materialId}: ${err.message}`);
+                    showError(`Could not compute MT ${mt} for ${materialId} from ${libraryLabel(library)}: ${err.message}`);
                 }
             }
             if (tasks.length) hideBusy();
@@ -535,17 +565,20 @@
             // Create data objects for each selected reaction
             for (const row of rows) {
                 const materialSelect = row.querySelector('.material-select');
+                const librarySelect = row.querySelector('.library-select');
                 const reactionSelect = row.querySelector('.reaction-select');
                 
                 const materialId = materialSelect.value;
+                const library = librarySelect.value;
                 const mt = reactionSelect.value;
                 
                 // Skip if material data isn't loaded
-                if (!materialData[materialId]) {
+                const key = materialKey(materialId, library);
+                if (!materialData[key]) {
                     continue;
                 }
                 
-                const material = materialData[materialId];
+                const material = materialData[key];
                 
                 // Skip if material doesn't have the selected reaction
                 if (!material.crossSections[mt]) {
@@ -564,6 +597,7 @@
                 const energyRelease = isEnergyRelease(mt);
                 exportData.push({
                     material: material.name,
+                    library,
                     reaction: mtName,
                     reactionId: mt,
                     units: energyRelease ? 'eV/cm' : '1/cm',
