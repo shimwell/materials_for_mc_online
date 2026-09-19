@@ -193,7 +193,7 @@
         <h1>Materials Macroscopic Cross Section Plotter</h1>
         <div class="subtitle"> A collection of materials with on the fly macroscopic cross section calculation by Jon Shimwell. See my other projects on <a href="https://xsplot.com" target="_blank">xsplot.com</a> </div>
         <div class="subtitle"> Links to material definition data sources <a href="https://www.pnnl.gov/publications/compendium-material-composition-data-radiation-transport-modeling-1" target="_blank">[1]</a>, <a href="https://github.com/fusion-energy/neutronics_material_maker/tree/main/src/neutronics_material_maker/data" target="_blank">[2]</a>. </div>
-        <div class="subtitle"> Cross sections are ENDF/B-VIII.1 at 294 K, fetched one reaction at a time from <a href="https://yamc-data.xsplot.com" target="_blank">yamc-data.xsplot.com</a> and combined in the browser by <a href="https://github.com/fusion-neutronics/yamc" target="_blank">yamc</a>. </div>
+        <div class="subtitle"> Cross sections are ENDF/B-VIII.1 at 294 K. </div>
         
         <div class="control-panel">
             <div class="control-group">
@@ -235,6 +235,8 @@
     </div>
 
     <script type="module">
+        import { mtLabel } from './mt_names.js';
+
         // Replace direct WASM usage with Web Worker interface
         const worker = new Worker('./wasmWorker.js', { type: 'module' });
         let workerReady = false;
@@ -433,7 +435,7 @@
                     } else {
                         availableArray.sort((a,b)=>parseInt(a)-parseInt(b)).forEach(rx => {
                             const opt = document.createElement('option');
-                            opt.value = rx; opt.textContent = `MT ${rx}`; reactionSelect.appendChild(opt);
+                            opt.value = rx; opt.textContent = mtLabel(rx); reactionSelect.appendChild(opt);
                         });
                     }
                     if (currentSelection && material.availableReactions.has(currentSelection)) reactionSelect.value = currentSelection; else reactionSelect.value='';

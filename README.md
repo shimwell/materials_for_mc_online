@@ -26,6 +26,7 @@ cross section data is kept in this repository.
 - `wasmWorker.js`: Web Worker that hosts the wasm, one message per request
 - `engine.js`: fetching, splicing and the calls into the wasm material API
 - `ranges.js`: byte-range planning and Arrow stream splicing, no DOM or network
+- `mt_names.js`: ENDF reaction names by MT number, generated from the `endf` crate in `core`
 - `materials.json`: the material definitions
 - `pkg/`: the wasm package built from `core`, with `CORE_COMMIT` naming the commit
 
