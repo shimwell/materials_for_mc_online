@@ -295,6 +295,21 @@
             errorDiv.style.display = 'none';
         }
 
+        // MTs whose microscopic quantity is an energy release in eV barn rather
+        // than a cross section in barn: ENDF reserves 301 to 450 for
+        // energy-release (KERMA) parameters, 444 is damage energy production
+        // and 901 is local heating. Their macroscopic value is energy per unit
+        // path length, eV cm⁻¹, so they are drawn on their own axis.
+        function isEnergyRelease(mt) {
+            mt = Number(mt);
+            return (mt >= 301 && mt <= 450) || mt === 901;
+        }
+        function energyReleaseTitle(mts) {
+            const kinds = new Set(mts.map(mt => (Number(mt) === 444 ? 'Damage Energy' : 'Heating')));
+            const label = kinds.size === 1 ? [...kinds][0] : 'Energy Release';
+            return `${label} (eV cm⁻¹)`;
+        }
+
         // Initialize the application
         async function init_app() {
             // Load materials.json
@@ -461,6 +476,7 @@
             let completed = 0;
             if (tasks.length) showBusy(`Computing cross sections 0/${tasks.length}...`);
             const plotData = [];
+            const traceMts = [];
             for (const row of rows) {
                 const materialSelect = row.querySelector('.material-select');
                 const reactionSelect = row.querySelector('.reaction-select');
@@ -478,6 +494,7 @@
                     }
                     if (!mat.crossSections[mt]) continue;
                     plotData.push({ x: mat.energyGrid, y: mat.crossSections[mt], type:'scatter', mode:'lines', name: `${mat.name} - MT ${mt}` });
+                    traceMts.push(Number(mt));
                 } catch(err) {
                     console.error('Plot update XS error', err);
                     showError(`Could not compute MT ${mt} for ${materialId}: ${err.message}`);
@@ -486,7 +503,19 @@
             if (tasks.length) hideBusy();
             const xScaleType = document.querySelector('input[name="x-scale"]:checked').value;
             const yScaleType = document.querySelector('input[name="y-scale"]:checked').value;
-            const layout = { xaxis:{ title:'Energy (eV)', type:xScaleType }, yaxis:{ title:'Cross Section (cm⁻¹)', type:yScaleType }, hovermode:'closest', legend:{x:0,y:1} };
+            // Cross sections in cm⁻¹ and energy releases in eV cm⁻¹ never share
+            // an axis: alone, either takes the left axis with its own title;
+            // together, the energy releases move to a right-hand axis.
+            const energyReleaseMts = traceMts.filter(isEnergyRelease);
+            const mixed = energyReleaseMts.length > 0 && energyReleaseMts.length < traceMts.length;
+            if (mixed) traceMts.forEach((mt, i) => { if (isEnergyRelease(mt)) plotData[i].yaxis = 'y2'; });
+            const layout = { xaxis:{ title:'Energy (eV)', type:xScaleType }, hovermode:'closest', legend:{x:0,y:1} };
+            if (traceMts.length && energyReleaseMts.length === traceMts.length) {
+                layout.yaxis = { title: energyReleaseTitle(energyReleaseMts), type: yScaleType };
+            } else {
+                layout.yaxis = { title: 'Cross Section (cm⁻¹)', type: yScaleType };
+                if (mixed) layout.yaxis2 = { title: energyReleaseTitle(energyReleaseMts), type: yScaleType, overlaying: 'y', side: 'right' };
+            }
             Plotly.newPlot('plot', plotData, layout);
         }
 
@@ -528,13 +557,16 @@
                 const energyValues = Array.from(material.energyGrid);
                 const xsValues = Array.from(material.crossSections[mt]);
                 
-                // Add to export data with separate energy and xs arrays
+                // Add to export data with separate energy and value arrays,
+                // naming the value array by its unit
+                const energyRelease = isEnergyRelease(mt);
                 exportData.push({
                     material: material.name,
                     reaction: mtName,
                     reactionId: mt,
+                    units: energyRelease ? 'eV/cm' : '1/cm',
                     energy_eV: energyValues,
-                    xs_per_cm: xsValues
+                    [energyRelease ? 'eV_per_cm' : 'xs_per_cm']: xsValues
                 });
             }
             
