@@ -7,9 +7,9 @@
 // Node for testing.
 //
 // Protocol, all messages tagged with the caller's requestId:
-//   in  {type: 'create_material', materialId, materialDef}
+//   in  {type: 'create_material', materialId, materialDef, library}
 //   out {type: 'created', requestId, mts: [int]}
-//   in  {type: 'calc_xs', materialId, mts: [int]}
+//   in  {type: 'calc_xs', materialId, mts: [int], library}
 //   out {type: 'xs', requestId, energy_grid: Float64Array, cross_sections: {mt: Float64Array}}
 //   out {type: 'error', requestId, error: string}   on any failure
 // A single {type: 'ready'} with no requestId is posted once init finishes.
@@ -33,14 +33,14 @@ self.onmessage = async (event) => {
     await ready;
     switch (type) {
       case 'create_material': {
-        const { materialId, materialDef } = event.data;
-        const mts = await engine.createMaterial(materialId, materialDef);
+        const { materialId, materialDef, library } = event.data;
+        const mts = await engine.createMaterial(materialId, materialDef, library);
         self.postMessage({ type: 'created', requestId, mts });
         break;
       }
       case 'calc_xs': {
-        const { materialId, mts } = event.data;
-        const { energyGrid, crossSections } = await engine.calculateXs(materialId, mts);
+        const { materialId, mts, library } = event.data;
+        const { energyGrid, crossSections } = await engine.calculateXs(materialId, mts, library);
         // The arrays are copies made by the wasm binding, so their buffers can
         // be handed to the page rather than cloned a second time.
         const transfer = [energyGrid.buffer, ...Object.values(crossSections).map((a) => a.buffer)];

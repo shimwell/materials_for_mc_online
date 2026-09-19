@@ -2,7 +2,7 @@
 // asks the yamc wasm for macroscopic cross sections.
 //
 // Data comes from the published Arrow directories at `ORIGIN`, one directory
-// per nuclide, and only the pieces this page draws are downloaded:
+// per library and nuclide, and only the pieces this page draws are downloaded:
 //
 //   version.json    whole (a few tens of kB), it carries the byte-range index
 //   nuclide.arrow   whole (3 kB)
@@ -13,6 +13,12 @@
 // in-memory filesystem, where the reader treats them exactly like the whole
 // files. Reactions are fetched as the page asks for them, so choosing a new
 // reaction costs one small range request per nuclide rather than a reload.
+//
+// Every material belongs to one library. The same nuclide from two libraries
+// is two entries here and two directories in the wasm filesystem, and the
+// wasm's nuclide-to-directory map is pointed at a material's own library each
+// time that material is built, so two rows of the page can draw the same
+// material from different libraries on one plot.
 //
 // The wasm caller must never ask for a reaction none of a material's nuclides
 // carry: that is a Rust panic, and a panic leaves the module unusable. Every
@@ -26,9 +32,9 @@ import { WasmMaterial, WasmSimulation, WasmConfig, element_nuclides } from './pk
 import {
   reactionRanges, energyRanges, publishedMts, planFetch, coalesce, spliceStream, rangeHeader, EOS,
 } from './ranges.js';
+import { LIBRARIES, DEFAULT_LIBRARY } from './libraries.js';
 
 export const ORIGIN = 'https://yamc-data.xsplot.com';
-export const LIBRARY = 'endf-b8.1';
 /// The temperature this page draws, spelled the way the files label it.
 export const TEMPERATURE = '294K';
 /// The bare label the wasm material API uses for the same temperature.
@@ -38,26 +44,35 @@ const TEMPERATURE_LABEL = TEMPERATURE.replace(/K$/, '');
 const TOTAL_MT = 1;
 
 const SECTIONS_WHOLE = ['version.json', 'nuclide.arrow'];
+const KNOWN_LIBRARIES = new Set(LIBRARIES.map((l) => l.id));
 
 /// Build the engine. The wasm module must already be initialised.
-export function createEngine({ origin = ORIGIN, library = LIBRARY, fetchImpl = fetch } = {}) {
+export function createEngine({ origin = ORIGIN, fetchImpl = fetch } = {}) {
   // Owns the in-memory storage backend the wasm reads nuclear data from.
   // Constructing it installs that backend; nothing else in the wasm API does.
   const sim = new WasmSimulation();
   const elementMap = element_nuclides();
 
-  /// Per-nuclide state, keyed by name. Held as the in-flight promise so
-  /// concurrent materials sharing a nuclide coalesce onto one download.
+  /// Per-(library, nuclide) state. Held as the in-flight promise so concurrent
+  /// materials sharing a nuclide coalesce onto one download.
   const nuclides = new Map();
-  /// Materials the page has asked for, keyed by its own material id.
+  /// Materials the page has asked for, keyed by library and the page's id.
   const materials = new Map();
   /// Once a ranged request has come back as a whole object, something between
   /// here and the bucket strips `Range`; every later fetch asks for whole files
   /// so a plan of several spans does not download the file several times.
   let rangesStripped = false;
 
-  const url = (name, file) => `${origin}/${library}/neutron/${name}.arrow/${file}`;
-  const dir = (name) => `/${library}/${name}.arrow`;
+  const url = (library, name, file) => `${origin}/${library}/neutron/${name}.arrow/${file}`;
+  const dir = (library, name) => `/${library}/${name}.arrow`;
+  const key = (library, id) => `${library}/${id}`;
+
+  function checkLibrary(library) {
+    if (!KNOWN_LIBRARIES.has(library)) {
+      throw new Error(`unknown library ${library}; one of ${[...KNOWN_LIBRARIES].join(', ')}`);
+    }
+    return library;
+  }
 
   async function fetchBytes(target, range = null) {
     const resp = await fetchImpl(target, range ? { headers: { Range: rangeHeader(range) } } : undefined);
@@ -84,34 +99,50 @@ export function createEngine({ origin = ORIGIN, library = LIBRARY, fetchImpl = f
     return { bytes: spliceStream(plan.parts, plan.spans, got.map((g) => g.bytes)), whole: false };
   }
 
-  /// Load a nuclide's metadata and its energy grid at TEMPERATURE, and record
-  /// where its reactions live so they can be fetched one at a time later.
-  function ensureNuclide(name) {
-    if (!nuclides.has(name)) {
-      nuclides.set(name, loadNuclide(name).catch((err) => {
+  /// Load a nuclide's metadata and its energy grid at TEMPERATURE from one
+  /// library, and record where its reactions live so they can be fetched one
+  /// at a time later.
+  function ensureNuclide(library, name) {
+    const k = key(library, name);
+    if (!nuclides.has(k)) {
+      nuclides.set(k, loadNuclide(library, name).catch((err) => {
         // A failed load is not cached: a transient network error would
         // otherwise poison the nuclide for the rest of the session.
-        nuclides.delete(name);
+        nuclides.delete(k);
         throw err;
       }));
     }
-    return nuclides.get(name);
+    return nuclides.get(k);
   }
 
-  async function loadNuclide(name) {
-    const [versionBytes, nuclideBytes] = await Promise.all(
-      SECTIONS_WHOLE.map((file) => fetchBytes(url(name, file)).then((g) => g.bytes)));
+  async function loadNuclide(library, name) {
+    const versionResp = await fetchImpl(url(library, name, 'version.json'));
+    if (versionResp.status === 404) {
+      // Nothing else under this directory can exist either. The libraries
+      // differ in coverage (TENDL-2025 has no H1, for one), so this is the
+      // message a user picking a library needs to see.
+      throw new Error(`${name} is not published in ${library}`);
+    }
+    if (!versionResp.ok) {
+      throw new Error(`${versionResp.status} ${versionResp.statusText} fetching ${url(library, name, 'version.json')}`);
+    }
+    const [versionBytes, nuclideBytes] = await Promise.all([
+      versionResp.arrayBuffer().then((b) => new Uint8Array(b)),
+      fetchBytes(url(library, name, 'nuclide.arrow')).then((g) => g.bytes),
+    ]);
     let version;
     try {
       version = JSON.parse(new TextDecoder().decode(versionBytes));
     } catch (err) {
-      throw new Error(`${name}: version.json does not parse: ${err.message}`);
+      throw new Error(`${library} ${name}: version.json does not parse: ${err.message}`);
     }
     const reactions = reactionRanges(version);
     const energy = energyRanges(version);
 
     const entry = {
+      library,
       name,
+      dir: dir(library, name),
       /// Reaction batches fetched so far, MT -> {off, len, bytes}, in file order
       /// when written out. Empty while `whole` is true.
       batches: new Map(),
@@ -126,20 +157,20 @@ export function createEngine({ origin = ORIGIN, library = LIBRARY, fetchImpl = f
       ranges: null,
     };
 
-    sim.add_file(`${dir(name)}/version.json`, versionBytes);
-    sim.add_file(`${dir(name)}/nuclide.arrow`, nuclideBytes);
+    sim.add_file(`${entry.dir}/version.json`, versionBytes);
+    sim.add_file(`${entry.dir}/nuclide.arrow`, nuclideBytes);
 
     const indexed = reactions && energy && energy.temperatures.has(TEMPERATURE) && !rangesStripped;
     if (indexed) {
       const plan = planFetch(energy.schema, [energy.temperatures.get(TEMPERATURE)]);
-      const got = await fetchSpliced(url(name, 'energy.arrow'), plan);
-      sim.add_file(`${dir(name)}/energy.arrow`, got.bytes);
+      const got = await fetchSpliced(url(library, name, 'energy.arrow'), plan);
+      sim.add_file(`${entry.dir}/energy.arrow`, got.bytes);
     } else {
       if (energy && !energy.temperatures.has(TEMPERATURE)) {
         throw new Error(`${name} is not published at ${TEMPERATURE} in ${library}`);
       }
-      const got = await fetchBytes(url(name, 'energy.arrow'));
-      sim.add_file(`${dir(name)}/energy.arrow`, got.bytes);
+      const got = await fetchBytes(url(library, name, 'energy.arrow'));
+      sim.add_file(`${entry.dir}/energy.arrow`, got.bytes);
     }
 
     if (indexed && !rangesStripped) {
@@ -148,25 +179,21 @@ export function createEngine({ origin = ORIGIN, library = LIBRARY, fetchImpl = f
     } else {
       await loadWholeReactions(entry);
     }
-
-    // The map must name a directory that already holds files: the wasm checks
-    // the path exists and panics otherwise. Entries merge, so one call per
-    // nuclide is enough.
-    WasmConfig.set_cross_sections({ [name]: dir(name) });
     return entry;
   }
 
   /// Fallback for a nuclide without a usable index, or an origin that ignores
   /// `Range`: take the whole reactions file and let the wasm say what it holds.
   async function loadWholeReactions(entry) {
-    const got = await fetchBytes(url(entry.name, 'reactions.arrow'));
-    sim.add_file(`${dir(entry.name)}/reactions.arrow`, got.bytes);
+    const got = await fetchBytes(url(entry.library, entry.name, 'reactions.arrow'));
+    sim.add_file(`${entry.dir}/reactions.arrow`, got.bytes);
     entry.whole = true;
     entry.batches.clear();
     entry.fileVersion++;
-    // `set_cross_sections` has to know the directory before a material can
-    // read it, and this throwaway material is what reads the MT list out.
-    WasmConfig.set_cross_sections({ [entry.name]: dir(entry.name) });
+    // The map must name a directory that already holds files: the wasm checks
+    // the path exists and panics otherwise. This throwaway material is what
+    // reads the MT list out.
+    WasmConfig.set_cross_sections({ [entry.name]: entry.dir });
     const probe = new WasmMaterial();
     probe.add_nuclide(entry.name, 1.0);
     probe.set_density('g/cm3', 1.0);
@@ -210,13 +237,14 @@ export function createEngine({ origin = ORIGIN, library = LIBRARY, fetchImpl = f
     const plan = entry.schema
       ? { parts: [...wanted].sort((a, b) => a.off - b.off), spans: coalesce([...wanted]) }
       : planFetch(ranges.schema, wanted);
+    const target = url(entry.library, entry.name, 'reactions.arrow');
     try {
-      const got = await Promise.all(plan.spans.map((span) => fetchBytes(url(entry.name, 'reactions.arrow'), span)));
+      const got = await Promise.all(plan.spans.map((span) => fetchBytes(target, span)));
       const whole = got.find((g) => g.whole);
       if (whole) {
         // The origin sent the whole file. Keep it: nothing else needs fetching
         // for this nuclide, and the ranged path is off for the session.
-        sim.add_file(`${dir(entry.name)}/reactions.arrow`, whole.bytes);
+        sim.add_file(`${entry.dir}/reactions.arrow`, whole.bytes);
         entry.whole = true;
         entry.batches.clear();
         entry.fileVersion++;
@@ -231,11 +259,10 @@ export function createEngine({ origin = ORIGIN, library = LIBRARY, fetchImpl = f
       };
       if (!entry.schema) entry.schema = cut(ranges.schema);
       for (const part of wanted) {
-        const bytes = cut(part);
         // One batch can be listed under several MTs only in files from before
         // the temperature split, which the index reader already rejects, so
         // each fetched range is one MT here.
-        entry.batches.set(part.mt, { off: part.off, len: part.len, bytes });
+        entry.batches.set(part.mt, { off: part.off, len: part.len, bytes: cut(part) });
       }
       writeReactions(entry);
     } finally {
@@ -256,7 +283,7 @@ export function createEngine({ origin = ORIGIN, library = LIBRARY, fetchImpl = f
       at += p.len;
     }
     out.set(EOS, at);
-    sim.add_file(`${dir(entry.name)}/reactions.arrow`, out);
+    sim.add_file(`${entry.dir}/reactions.arrow`, out);
     entry.fileVersion++;
   }
 
@@ -274,24 +301,26 @@ export function createEngine({ origin = ORIGIN, library = LIBRARY, fetchImpl = f
     return [...wanted];
   }
 
-  /// Register a material and return the MTs it can be plotted for: the union
-  /// of what its nuclides publish at TEMPERATURE, read from the indexes without
-  /// touching the wasm.
-  async function createMaterial(materialId, def) {
-    if (materials.has(materialId)) return materials.get(materialId).mts;
+  /// Register a material from one library and return the MTs it can be
+  /// plotted for: the union of what its nuclides publish at TEMPERATURE, read
+  /// from the indexes without touching the wasm.
+  async function createMaterial(materialId, def, library = DEFAULT_LIBRARY) {
+    checkLibrary(library);
+    const k = key(library, materialId);
+    if (materials.has(k)) return materials.get(k).mts;
     if (!def.density) throw new Error(`material ${materialId} has no density`);
     const names = requiredNuclides(def);
-    const entries = await Promise.all(names.map(ensureNuclide));
+    const entries = await Promise.all(names.map((name) => ensureNuclide(library, name)));
     const mts = new Set();
     for (const entry of entries) for (const mt of entry.mts) mts.add(mt);
     const material = {
-      def, names, entries,
+      def, library, entries,
       mts: [...mts].sort((a, b) => a - b),
       wasm: null,
       /// fileVersion of each nuclide when `wasm` was built.
       builtFrom: new Map(),
     };
-    materials.set(materialId, material);
+    materials.set(k, material);
     // The total is wanted by every calculation, so start on it now rather than
     // when the first reaction is chosen. Failures surface on that first call.
     for (const entry of entries) ensureReactions(entry, [TOTAL_MT]).catch(() => {});
@@ -313,6 +342,13 @@ export function createEngine({ origin = ORIGIN, library = LIBRARY, fetchImpl = f
 
   function buildMaterial(material) {
     const { def } = material;
+    // The wasm maps a nuclide name to one directory, so point it at this
+    // material's library right before the build. Another library's material
+    // built earlier already holds its own copy of the data and is not
+    // affected; one built later re-points the map for itself. The directories
+    // exist already (the nuclides were loaded to get here), which is what
+    // keeps this call from panicking.
+    WasmConfig.set_cross_sections(Object.fromEntries(material.entries.map((e) => [e.name, e.dir])));
     const wasm = new WasmMaterial();
     try {
       for (const e of def.elements ?? []) wasm.add_element(e.name, e.fraction);
@@ -329,11 +365,12 @@ export function createEngine({ origin = ORIGIN, library = LIBRARY, fetchImpl = f
     material.builtFrom = new Map(material.entries.map((e) => [e.name, e.fileVersion]));
   }
 
-  /// Macroscopic cross sections of `materialId` for each MT in `mts` at
-  /// TEMPERATURE, on the material's unified energy grid.
-  async function calculateXs(materialId, mts) {
-    const material = materials.get(materialId);
-    if (!material) throw new Error(`material ${materialId} not created`);
+  /// Macroscopic cross sections of `materialId` from `library` for each MT in
+  /// `mts` at TEMPERATURE, on the material's unified energy grid.
+  async function calculateXs(materialId, mts, library = DEFAULT_LIBRARY) {
+    checkLibrary(library);
+    const material = materials.get(key(library, materialId));
+    if (!material) throw new Error(`material ${materialId} from ${library} not created`);
     mts = [...new Set(mts.map(Number))];
     const wanted = new Set([TOTAL_MT, ...mts]);
     await Promise.all(material.entries.map((entry) => ensureReactions(entry, wanted)));
@@ -347,7 +384,7 @@ export function createEngine({ origin = ORIGIN, library = LIBRARY, fetchImpl = f
       // Guarded, not tried: an MT no nuclide of this material carries would
       // panic inside the wasm and take the whole engine with it.
       if (!material.entries.some((e) => e.mts.has(mt))) {
-        throw new Error(`MT ${mt} is not available for material ${materialId}`);
+        throw new Error(`MT ${mt} is not available for material ${materialId} in ${library}`);
       }
       const [xs, energy] = material.wasm.macroscopicCrossSection(mt, TEMPERATURE_LABEL);
       crossSections[mt] = xs;

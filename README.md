@@ -6,8 +6,10 @@ Materials_for_MC).
 
 The page plots macroscopic neutron cross sections for a collection of
 materials. The Rust material code runs in the browser as wasm, and the nuclear
-data is fetched on demand from the published ENDF/B-VIII.1 Arrow files at
-[yamc-data.xsplot.com](https://yamc-data.xsplot.com).
+data is fetched on demand from the published Arrow files at
+[yamc-data.xsplot.com](https://yamc-data.xsplot.com). Each row of the plot
+picks its own library (ENDF/B-VIII.1, JEFF-4.0, JENDL-5.0, TENDL-2025,
+TENDL-2017 or FENDL-3.2d), so one material can be compared across libraries.
 
 The online site is here: [https://shimwell.github.io/materials_for_mc_online/](https://shimwell.github.io/materials_for_mc_online/)
 
@@ -27,6 +29,7 @@ cross section data is kept in this repository.
 - `engine.js`: fetching, splicing and the calls into the wasm material API
 - `ranges.js`: byte-range planning and Arrow stream splicing, no DOM or network
 - `mt_names.js`: ENDF reaction names by MT number, generated from the `endf` crate in `core`
+- `libraries.js`: the libraries on offer, shared by the page and the engine
 - `materials.json`: the material definitions
 - `pkg/`: the wasm package built from `core`, with `CORE_COMMIT` naming the commit
 
