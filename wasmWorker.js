@@ -10,6 +10,10 @@
 //   in  {type: 'create_material', materialId, materialDef, library}
 //   out {type: 'created', requestId, mts: [int]}
 //   in  {type: 'calc_xs', materialId, mts: [int], library}
+//   in  {type: 'forget_material', materialId}
+//   out {type: 'forgotten', requestId}
+//   in  {type: 'elements'}
+//   out {type: 'elements', requestId, elements: {symbol: [nuclide]}}
 //   out {type: 'xs', requestId, energy_grid: Float64Array, cross_sections: {mt: Float64Array}}
 //   out {type: 'error', requestId, error: string}   on any failure
 // A single {type: 'ready'} with no requestId is posted once init finishes.
@@ -48,6 +52,15 @@ self.onmessage = async (event) => {
           { type: 'xs', requestId, energy_grid: energyGrid, cross_sections: crossSections },
           transfer,
         );
+        break;
+      }
+      case 'forget_material': {
+        engine.forgetMaterial(event.data.materialId);
+        self.postMessage({ type: 'forgotten', requestId });
+        break;
+      }
+      case 'elements': {
+        self.postMessage({ type: 'elements', requestId, elements: engine.elements() });
         break;
       }
       default:

@@ -106,6 +106,152 @@
             color: #b00020;
             white-space: pre-wrap;
         }
+        .materials-panel {
+            margin-bottom: 15px;
+            padding: 12px 15px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+        }
+        .materials-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .materials-title {
+            font-weight: bold;
+        }
+        .custom-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .custom-list:empty {
+            display: none;
+        }
+        .custom-chip {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 10px;
+            background-color: #e8f0fe;
+            border: 1px solid #c3d6f7;
+            border-radius: 14px;
+            font-size: 0.9em;
+        }
+        .custom-chip button {
+            border: none;
+            background: none;
+            cursor: pointer;
+            padding: 0;
+            font-size: 0.9em;
+            color: #2a5db0;
+        }
+        .custom-chip button.remove {
+            color: #b00020;
+            font-weight: bold;
+        }
+        .secondary-btn {
+            background-color: #fff;
+            border: 1px solid #bbb;
+            border-radius: 4px;
+            padding: 6px 12px;
+            cursor: pointer;
+        }
+        .secondary-btn:hover {
+            background-color: #f0f0f0;
+        }
+        .material-builder {
+            margin-top: 12px;
+            padding: 12px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+        }
+        .builder-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: flex-end;
+            margin-bottom: 10px;
+        }
+        .builder-field {
+            display: flex;
+            flex-direction: column;
+            font-weight: bold;
+        }
+        .builder-field input, .builder-field select {
+            font-weight: normal;
+            padding: 6px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 0;
+        }
+        .builder-field.fractions {
+            border: none;
+            padding: 0;
+            margin: 0;
+        }
+        .builder-field.fractions legend {
+            font-weight: bold;
+            padding: 0;
+            font-size: 1em;
+        }
+        .builder-field.fractions label {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-weight: normal;
+            margin-right: 12px;
+        }
+        .component-table {
+            border-collapse: collapse;
+            margin-bottom: 8px;
+        }
+        .component-table th {
+            text-align: left;
+            font-size: 0.85em;
+            color: #555;
+            padding: 0 8px 4px 0;
+        }
+        .component-table td {
+            padding: 0 8px 6px 0;
+        }
+        .component-table input {
+            padding: 6px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 150px;
+        }
+        .component-table input.component-name {
+            width: 260px;
+        }
+        .component-remove {
+            color: red;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .builder-errors {
+            margin: 8px 0;
+            padding: 8px 10px;
+            background-color: #fdecee;
+            border: 1px solid #f5c2c7;
+            border-radius: 4px;
+            color: #b00020;
+            font-size: 0.9em;
+        }
+        .builder-errors ul {
+            margin: 0;
+            padding-left: 18px;
+        }
+        .builder-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        .builder-actions .add-reaction-btn {
+            margin-top: 0;
+        }
         .info-text {
             color: #666;
             font-size: 0.9em;
@@ -195,6 +341,48 @@
         <div class="subtitle"> Links to material definition data sources <a href="https://www.pnnl.gov/publications/compendium-material-composition-data-radiation-transport-modeling-1" target="_blank">[1]</a>, <a href="https://github.com/fusion-energy/neutronics_material_maker/tree/main/src/neutronics_material_maker/data" target="_blank">[2]</a>. </div>
         <div class="subtitle"> Cross sections at 294 K from the nuclear data library chosen in each row. </div>
         
+        <div class="materials-panel">
+            <div class="materials-header">
+                <span class="materials-title">Your materials</span>
+                <button id="new-material-btn" class="secondary-btn" type="button">+ New material</button>
+                <span class="info-text">Build one from elements and nuclides, then plot it beside the built-in materials.</span>
+            </div>
+            <div id="custom-list" class="custom-list"></div>
+            <form id="material-builder" class="material-builder" hidden>
+                <div class="builder-row">
+                    <label class="builder-field">
+                        <span>Name</span>
+                        <input id="builder-name" type="text" placeholder="Enriched lithium" autocomplete="off">
+                    </label>
+                    <fieldset class="builder-field fractions">
+                        <legend>Fractions</legend>
+                        <label><input type="radio" name="fraction-type" value="atom" checked> atom</label>
+                        <label><input type="radio" name="fraction-type" value="weight"> weight</label>
+                    </fieldset>
+                </div>
+                <table class="component-table">
+                    <thead><tr><th>Component</th><th>Fraction</th><th></th></tr></thead>
+                    <tbody id="component-rows"></tbody>
+                </table>
+                <button id="add-component-btn" class="secondary-btn" type="button">+ Add component</button>
+                <div class="builder-row" style="margin-top: 12px;">
+                    <label class="builder-field">
+                        <span>Density</span>
+                        <input id="builder-density" type="number" step="any" min="0" placeholder="0.534">
+                    </label>
+                    <label class="builder-field">
+                        <span>Unit</span>
+                        <select id="builder-unit"></select>
+                    </label>
+                </div>
+                <div id="builder-errors" class="builder-errors" hidden></div>
+                <div class="builder-actions">
+                    <button id="builder-cancel" class="secondary-btn" type="button">Cancel</button>
+                    <button id="builder-save" class="add-reaction-btn" type="submit">Save material</button>
+                </div>
+            </form>
+        </div>
+
         <div class="control-panel">
             <div class="control-group">
                 <div id="reactions-container" class="reactions-container"></div>
@@ -237,6 +425,11 @@
     <script type="module">
         import { mtLabel } from './mt_names.js';
         import { LIBRARIES, DEFAULT_LIBRARY, libraryLabel } from './libraries.js';
+        import {
+            normaliseDefinition, definitionToForm, byId, customId, isCustomId,
+            mergeDefinition, loadStored, saveStored, DENSITY_UNITS,
+        } from './custom_materials.js';
+        import { encodeState, decodeState } from './url_state.js';
 
         // Replace direct WASM usage with Web Worker interface
         const worker = new Worker('./wasmWorker.js', { type: 'module' });
@@ -285,6 +478,24 @@
         // Material definitions will be loaded from materials.json
         let materialDefinitions = {};
 
+        /// Materials the user built, in the order they were added; `c1` is the
+        /// first. They are kept in the browser and carried in the URL, so a
+        /// plot using one can be sent to someone else.
+        let customMaterials = [];
+        /// Element symbols the nuclear data knows, for checking a typed
+        /// composition before anything is fetched. Null until the worker answers.
+        let knownElements = null;
+
+        /// The definition behind a material id, custom or built in.
+        function definitionFor(materialId) {
+            return isCustomId(materialId) ? byId(customMaterials)[materialId] : materialDefinitions[materialId];
+        }
+
+        /// The name to show for a material id.
+        function materialName(materialId) {
+            return definitionFor(materialId)?.name ?? materialId;
+        }
+
         // Cross section data storage, keyed by library and material id: the
         // same material from two libraries is two entries with two grids
         const materialData = {};
@@ -327,19 +538,66 @@
                 return;
             }
 
-            document.getElementById('add-reaction-btn').addEventListener('click', addReactionRow);
+            document.getElementById('builder-unit').innerHTML =
+                DENSITY_UNITS.map((u) => `<option value="${u}">${u}</option>`).join('');
+
+            // What the browser remembers, then anything the link carries. A
+            // shared plot brings its own compositions, and one identical to a
+            // material already saved is reused rather than duplicated, so
+            // opening the same link twice does not grow the list.
+            customMaterials = loadStored(window.localStorage);
+            const fromUrl = decodeState(location.hash);
+            const renamed = new Map();
+            fromUrl.materials.forEach((def, i) => {
+                const merged = mergeDefinition(customMaterials, def);
+                customMaterials = merged.defs;
+                renamed.set(customId(i), merged.id);
+            });
+            if (fromUrl.materials.length) saveStored(window.localStorage, customMaterials);
+            renderCustomList();
+            wireBuilder();
+
+            document.getElementById('add-reaction-btn').addEventListener('click', () => addReactionRow());
             document.getElementById('download-data-btn').addEventListener('click', downloadPlotData);
             document.querySelectorAll('input[name="x-scale"], input[name="y-scale"]').forEach(radio => {
                 radio.addEventListener('change', updatePlot);
             });
 
-            addReactionRow();
+            // Only needed to check a typed composition, so the page does not
+            // wait for it before drawing anything.
+            sendWorker('elements')
+                .then((msg) => { knownElements = new Set(Object.keys(msg.elements)); })
+                .catch(() => {});
+
+            const rows = fromUrl.rows.map((row) => ({ ...row, materialId: renamed.get(row.materialId) ?? row.materialId }));
+            if (rows.length) {
+                for (const row of rows) await addReactionRow(row);
+            } else {
+                await addReactionRow();
+            }
+        }
+
+        function wireBuilder() {
+            document.getElementById('new-material-btn').addEventListener('click', () => openBuilder());
+            document.getElementById('builder-cancel').addEventListener('click', closeBuilder);
+            document.getElementById('add-component-btn').addEventListener('click', () => {
+                document.getElementById('component-rows').insertAdjacentHTML('beforeend', componentRowHtml());
+            });
+            document.getElementById('component-rows').addEventListener('click', (e) => {
+                if (e.target.classList.contains('component-remove')) e.target.closest('tr').remove();
+            });
+            builder.addEventListener('submit', (e) => { e.preventDefault(); saveBuilder(); });
+            document.getElementById('custom-list').addEventListener('click', (e) => {
+                const { edit, remove } = e.target.dataset ?? {};
+                if (edit) openBuilder(edit);
+                if (remove) removeCustomMaterial(remove);
+            });
         }
 
         async function ensureMaterial(materialId, library) {
             const key = materialKey(materialId, library);
             if (materialData[key]) return materialData[key];
-            const def = materialDefinitions[materialId];
+            const def = definitionFor(materialId);
             if (!def) throw new Error(`Material def missing ${materialId}`);
             showBusy(`Creating material ${materialId} from ${libraryLabel(library)}...`);
             try {
@@ -361,8 +619,165 @@
             return materialData[key];
         }
 
+
+        // --- materials the user builds ------------------------------------
+        //
+        // A custom material is the same shape as a built-in one, so once it is
+        // in the list every other part of the page treats it the same way.
+
+        const escapeHtml = (text) => String(text).replace(/[&<>"']/g, (c) =>
+            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+        /// The options for a material dropdown: anything the user built first,
+        /// under its own heading, then the materials the page ships with.
+        function materialOptionsHtml() {
+            const builtIn = Object.entries(materialDefinitions)
+                .map(([id, def]) => `<option value="${id}">${escapeHtml(def.name)}</option>`).join('');
+            if (!customMaterials.length) return builtIn;
+            const mine = customMaterials
+                .map((def, i) => `<option value="${customId(i)}">${escapeHtml(def.name)}</option>`).join('');
+            return `<optgroup label="Your materials">${mine}</optgroup>` +
+                   `<optgroup label="Built in">${builtIn}</optgroup>`;
+        }
+
+        /// Rebuild every row's material dropdown, keeping each row on the
+        /// material it was showing where that material still exists.
+        function refreshMaterialSelects() {
+            for (const select of document.querySelectorAll('.material-select')) {
+                const wanted = select.value;
+                select.innerHTML = materialOptionsHtml();
+                if (definitionFor(wanted)) select.value = wanted;
+            }
+            renderCustomList();
+        }
+
+        function renderCustomList() {
+            const list = document.getElementById('custom-list');
+            list.innerHTML = customMaterials.map((def, i) => {
+                const id = customId(i);
+                return `<span class="custom-chip"><span>${escapeHtml(def.name)}</span>` +
+                    `<button type="button" data-edit="${id}" title="Edit ${escapeHtml(def.name)}">edit</button>` +
+                    `<button type="button" class="remove" data-remove="${id}" title="Remove ${escapeHtml(def.name)}">\u2716</button></span>`;
+            }).join('');
+        }
+
+        // The builder form. `editing` is the id being changed, or null for a
+        // new material.
+        let editing = null;
+        const builder = document.getElementById('material-builder');
+
+        function componentRowHtml(component = { name: '', fraction: '' }) {
+            return `<tr>
+                <td><input class="component-name" placeholder="Element or isotope e.g. Li or Li6" autocomplete="off" value="${escapeHtml(component.name ?? '')}"></td>
+                <td><input class="component-fraction" type="number" step="any" min="0" placeholder="1.0" value="${component.fraction ?? ''}"></td>
+                <td><span class="component-remove" title="Remove this component">\u2716</span></td>
+            </tr>`;
+        }
+
+        function openBuilder(id = null) {
+            editing = id;
+            const form = id ? definitionToForm(definitionFor(id)) : null;
+            document.getElementById('builder-name').value = form?.name ?? '';
+            document.getElementById('builder-density').value = form?.density ?? '';
+            document.getElementById('builder-unit').value = form?.unit ?? DENSITY_UNITS[0];
+            const type = form?.fractionType ?? 'atom';
+            for (const radio of builder.querySelectorAll('input[name="fraction-type"]')) radio.checked = radio.value === type;
+            // One empty row to start: most materials being tried out are a
+            // single element, and Add component is right there for the rest.
+            const rows = form?.components?.length ? form.components : [{}];
+            document.getElementById('component-rows').innerHTML = rows.map(componentRowHtml).join('');
+            document.getElementById('builder-save').textContent = id ? 'Save changes' : 'Save material';
+            showBuilderErrors([]);
+            builder.hidden = false;
+            document.getElementById('builder-name').focus();
+        }
+
+        function closeBuilder() {
+            editing = null;
+            builder.hidden = true;
+        }
+
+        function showBuilderErrors(errors) {
+            const box = document.getElementById('builder-errors');
+            box.innerHTML = errors.length ? `<ul>${errors.map((e) => `<li>${escapeHtml(e)}</li>`).join('')}</ul>` : '';
+            box.hidden = !errors.length;
+        }
+
+        function readBuilderForm() {
+            return {
+                name: document.getElementById('builder-name').value,
+                fractionType: builder.querySelector('input[name="fraction-type"]:checked')?.value,
+                density: document.getElementById('builder-density').value,
+                unit: document.getElementById('builder-unit').value,
+                components: [...document.querySelectorAll('#component-rows tr')].map((tr) => ({
+                    name: tr.querySelector('.component-name').value,
+                    fraction: tr.querySelector('.component-fraction').value,
+                })),
+            };
+        }
+
+        async function saveBuilder() {
+            const { def, errors } = normaliseDefinition(readBuilderForm(), { knownElements });
+            showBuilderErrors(errors);
+            if (!def) return;
+            if (editing) {
+                // Same id, new composition: the worker is holding a material
+                // built from the old one, and the page a grid computed from it.
+                const id = editing;
+                customMaterials[Number(id.slice(1)) - 1] = def;
+                await sendWorker('forget_material', { materialId: id }).catch(() => {});
+                for (const key of Object.keys(materialData)) {
+                    if (key.slice(key.indexOf('/') + 1) === id) delete materialData[key];
+                }
+            } else {
+                customMaterials.push(def);
+            }
+            saveStored(window.localStorage, customMaterials);
+            closeBuilder();
+            refreshMaterialSelects();
+            updatePlot();
+        }
+
+        async function removeCustomMaterial(id) {
+            const index = Number(id.slice(1)) - 1;
+            if (!(index >= 0 && index < customMaterials.length)) return;
+            // Rows drawing it fall back to the first built-in material, since
+            // the id they hold is about to mean a different material or none.
+            const fallback = Object.keys(materialDefinitions)[0];
+            for (const select of document.querySelectorAll('.material-select')) {
+                if (select.value === id) select.value = fallback;
+            }
+            await sendWorker('forget_material', { materialId: id }).catch(() => {});
+            for (const key of Object.keys(materialData)) {
+                if (key.slice(key.indexOf('/') + 1) === id) delete materialData[key];
+            }
+            customMaterials.splice(index, 1);
+            saveStored(window.localStorage, customMaterials);
+            refreshMaterialSelects();
+            updatePlot();
+        }
+
+        // --- the plot as a URL ---------------------------------------------
+
+        let urlTimer = null;
+        function syncUrl() {
+            clearTimeout(urlTimer);
+            urlTimer = setTimeout(() => {
+                const rows = [...document.querySelectorAll('.reaction-row')].map((row) => ({
+                    library: row.querySelector('.library-select').value,
+                    materialId: row.querySelector('.material-select').value,
+                    mt: row.querySelector('.reaction-select').value,
+                }));
+                const hash = encodeState({ rows, materials: customMaterials });
+                const target = `${location.pathname}${location.search}${hash}`;
+                if (`${location.pathname}${location.search}${location.hash}` !== target) {
+                    history.replaceState(null, '', target);
+                }
+            }, 200);
+        }
+
         // Add a new reaction row
-        function addReactionRow() {
+        function addReactionRow(preset = null) {
             const reactionsContainer = document.getElementById('reactions-container');
             const rowId = Date.now(); // Unique ID for the row
             
@@ -378,9 +793,7 @@
             const materialSelect = document.createElement('select');
             materialSelect.className = 'material-select';
             materialSelect.dataset.rowId = rowId;
-            materialSelect.innerHTML = Object.entries(materialDefinitions)
-                .map(([id, def]) => `<option value="${id}">${def.name}</option>`)
-                .join('');
+            materialSelect.innerHTML = materialOptionsHtml();
             
             // Create library select with labels
             const libraryLabelDiv = document.createElement('div');
@@ -481,11 +894,18 @@
             }
             reactionSelect.addEventListener('change', updatePlot);
             
-            // Set defaults for first row (pure li6, total)
-            materialSelect.value = 'pure_li6';
-            
+            // A row restored from the URL starts on what the link named;
+            // otherwise the first row opens on pure Li-6, as it always has.
+            if (preset?.library && LIBRARIES.some((l) => l.id === preset.library)) librarySelect.value = preset.library;
+            materialSelect.value = definitionFor(preset?.materialId) ? preset.materialId : 'pure_li6';
+
             // Initialize the reaction select based on the default material
-            updateAvailableReactions().catch(error => {
+            return updateAvailableReactions().then(() => {
+                if (preset?.mt && [...reactionSelect.options].some((o) => o.value === String(preset.mt))) {
+                    reactionSelect.value = String(preset.mt);
+                    return updatePlot();
+                }
+            }).catch(error => {
                 console.error('Error initializing available reactions:', error);
             });
         }
@@ -533,6 +953,7 @@
                 }
             }
             if (tasks.length) hideBusy();
+            syncUrl();
             const xScaleType = document.querySelector('input[name="x-scale"]:checked').value;
             const yScaleType = document.querySelector('input[name="y-scale"]:checked').value;
             // Cross sections in cm⁻¹ and energy releases in eV cm⁻¹ never share
