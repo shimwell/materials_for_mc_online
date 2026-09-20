@@ -223,6 +223,9 @@
             border-radius: 4px;
             width: 150px;
         }
+        .component-table input.component-name {
+            width: 260px;
+        }
         .component-remove {
             color: red;
             cursor: pointer;
@@ -665,7 +668,7 @@
 
         function componentRowHtml(component = { name: '', fraction: '' }) {
             return `<tr>
-                <td><input class="component-name" placeholder="Fe or Li6" autocomplete="off" value="${escapeHtml(component.name ?? '')}"></td>
+                <td><input class="component-name" placeholder="Element or isotope e.g. Li or Li6" autocomplete="off" value="${escapeHtml(component.name ?? '')}"></td>
                 <td><input class="component-fraction" type="number" step="any" min="0" placeholder="1.0" value="${component.fraction ?? ''}"></td>
                 <td><span class="component-remove" title="Remove this component">\u2716</span></td>
             </tr>`;
