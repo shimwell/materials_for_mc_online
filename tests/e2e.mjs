@@ -110,6 +110,30 @@ await page.waitForFunction(() => document.querySelectorAll('.custom-chip').lengt
 step('removing it puts the row back on a built-in material',
   (await page.evaluate(() => document.querySelector('.material-select').value)) === 'pure_li6');
 
+// Someone coming back to a list they built long ago clears it in one go.
+step('with nothing saved there is nothing to remove',
+  await page.evaluate(() => document.getElementById('clear-materials-btn').hidden));
+const saved = [['Lead', 'Pb'], ['Beryllium', 'Be'], ['Oxygen', 'O']];
+for (const [i, [name, component]] of saved.entries()) {
+  await page.click('#new-material-btn');
+  await page.fill('#builder-name', name);
+  await fillComponent(0, component, 1);
+  await page.fill('#builder-density', '1.0');
+  await page.click('#builder-save');
+  await page.waitForFunction((n) => document.querySelectorAll('.custom-chip').length === n, i + 1, { timeout: 20000 });
+}
+step('the button counts what it will remove',
+  (await page.textContent('#clear-materials-btn')) === 'Remove all 3');
+page.once('dialog', (d) => d.accept());
+await page.click('#clear-materials-btn');
+await page.waitForFunction(() => document.querySelectorAll('.custom-chip').length === 0, null, { timeout: 20000 });
+const leftover = await page.evaluate(() => window.localStorage.getItem('materials_for_mc_online.custom'));
+step('they are gone from the browser too, not just the page', leftover === '[]', String(leftover));
+await page.reload({ waitUntil: 'load' });
+await page.waitForFunction(() => document.querySelector('.reaction-select')?.options.length > 2, null, { timeout: 120000 });
+step('and they stay gone after a reload',
+  (await page.evaluate(() => document.querySelectorAll('.custom-chip').length)) === 0);
+
 step('no console errors', errors.length === 0, errors.join(' | '));
 await browser.close();
 if (process.exitCode) process.exit(process.exitCode);

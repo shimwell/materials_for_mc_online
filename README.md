@@ -51,6 +51,10 @@ same link twice does not add it twice.
 A definition is exactly the shape `materials.json` uses, so one can be pasted
 into that file to make it a built-in material, or copied out of it.
 
+Each material has an edit and a remove button, and **Remove all** clears the
+lot, saying how many it will take, for coming back to a list built long enough
+ago to have forgotten it.
+
 ## How the data is loaded
 
 Each nuclide is published as a directory of Arrow IPC files, written one
