@@ -267,7 +267,7 @@
         }
         .reaction-row {
             display: grid;
-            grid-template-columns: 5fr 3fr 3fr auto; /* material, library, reaction, delete */
+            grid-template-columns: 5fr 3fr 2fr 3fr auto; /* material, library, temperature, reaction, delete */
             gap: 10px;
             align-items: center;
             margin-bottom: 6px;
@@ -339,7 +339,7 @@
         <h1>Materials Macroscopic Cross Section Plotter</h1>
         <div class="subtitle"> A collection of materials with on the fly macroscopic cross section calculation by Jon Shimwell. See my other projects on <a href="https://xsplot.com" target="_blank">xsplot.com</a> </div>
         <div class="subtitle"> Links to material definition data sources <a href="https://www.pnnl.gov/publications/compendium-material-composition-data-radiation-transport-modeling-1" target="_blank">[1]</a>, <a href="https://github.com/fusion-energy/neutronics_material_maker/tree/main/src/neutronics_material_maker/data" target="_blank">[2]</a>. </div>
-        <div class="subtitle"> Cross sections at 294 K from the nuclear data library chosen in each row. </div>
+        <div class="subtitle"> Cross sections from the nuclear data library and temperature chosen in each row. </div>
         
         <div class="materials-panel">
             <div class="materials-header">
@@ -430,6 +430,7 @@
             mergeDefinition, loadStored, saveStored, DENSITY_UNITS,
         } from './custom_materials.js';
         import { encodeState, decodeState } from './url_state.js';
+        import { TEMPERATURES, DEFAULT_TEMPERATURE, displayLabel, kelvinOf } from './temperatures.js';
 
         // Replace direct WASM usage with Web Worker interface
         const worker = new Worker('./wasmWorker.js', { type: 'module' });
@@ -496,10 +497,11 @@
             return definitionFor(materialId)?.name ?? materialId;
         }
 
-        // Cross section data storage, keyed by library and material id: the
-        // same material from two libraries is two entries with two grids
+        // Cross section data storage, keyed by library, material and
+        // temperature: the same material from two libraries, or at two
+        // temperatures, is two entries with two grids
         const materialData = {};
-        const materialKey = (materialId, library) => `${library}/${materialId}`;
+        const materialKey = (materialId, library, temperature) => `${library}/${materialId}/${temperature}`;
 
         const errorDiv = document.getElementById('error');
         function showError(message) {
@@ -594,26 +596,27 @@
             });
         }
 
-        async function ensureMaterial(materialId, library) {
-            const key = materialKey(materialId, library);
+        async function ensureMaterial(materialId, library, temperature) {
+            const key = materialKey(materialId, library, temperature);
             if (materialData[key]) return materialData[key];
             const def = definitionFor(materialId);
             if (!def) throw new Error(`Material def missing ${materialId}`);
-            showBusy(`Creating material ${materialId} from ${libraryLabel(library)}...`);
+            showBusy(`Creating ${def.name} from ${libraryLabel(library)} at ${displayLabel(temperature)}...`);
             try {
-                const mtsMsg = await sendWorker('create_material', { materialId, materialDef: def, library });
+                const mtsMsg = await sendWorker('create_material', { materialId, materialDef: def, library, temperature });
                 const mts = Array.isArray(mtsMsg.mts) ? mtsMsg.mts : [];
                 console.log(`Material ${materialId} (${library}) created; MT count:`, mts.length, mts);
                 materialData[key] = {
                     name: def.name,
                     library,
+                    temperature,
                     energyGrid: null,
                     crossSections: {},
                     availableReactions: new Set(mts.map(m => m.toString()))
                 };
             } catch (err) {
                 console.error('ensureMaterial failed', err);
-                showError(`Could not load ${def.name} from ${libraryLabel(library)}: ${err.message}`);
+                showError(`Could not load ${def.name} from ${libraryLabel(library)} at ${displayLabel(temperature)}: ${err.message}`);
                 throw err;
             } finally { hideBusy(); }
             return materialData[key];
@@ -726,8 +729,11 @@
                 const id = editing;
                 customMaterials[Number(id.slice(1)) - 1] = def;
                 await sendWorker('forget_material', { materialId: id }).catch(() => {});
+                // The key is library/material/temperature, so the id is the
+                // middle segment and every library and temperature it was
+                // computed at goes with it.
                 for (const key of Object.keys(materialData)) {
-                    if (key.slice(key.indexOf('/') + 1) === id) delete materialData[key];
+                    if (key.split('/')[1] === id) delete materialData[key];
                 }
             } else {
                 customMaterials.push(def);
@@ -749,7 +755,7 @@
             }
             await sendWorker('forget_material', { materialId: id }).catch(() => {});
             for (const key of Object.keys(materialData)) {
-                if (key.slice(key.indexOf('/') + 1) === id) delete materialData[key];
+                if (key.split('/')[1] === id) delete materialData[key];
             }
             customMaterials.splice(index, 1);
             saveStored(window.localStorage, customMaterials);
@@ -766,6 +772,7 @@
                 const rows = [...document.querySelectorAll('.reaction-row')].map((row) => ({
                     library: row.querySelector('.library-select').value,
                     materialId: row.querySelector('.material-select').value,
+                    temperature: row.querySelector('.temperature-select').value,
                     mt: row.querySelector('.reaction-select').value,
                 }));
                 const hash = encodeState({ rows, materials: customMaterials });
@@ -808,6 +815,19 @@
                 .join('');
             librarySelect.value = DEFAULT_LIBRARY;
 
+            // Create temperature select with labels
+            const temperatureLabelDiv = document.createElement('div');
+            temperatureLabelDiv.className = 'reaction-label';
+            temperatureLabelDiv.textContent = 'Temperature:';
+
+            const temperatureSelect = document.createElement('select');
+            temperatureSelect.className = 'temperature-select';
+            temperatureSelect.dataset.rowId = rowId;
+            temperatureSelect.innerHTML = TEMPERATURES
+                .map(t => `<option value="${t}">${displayLabel(t)}</option>`)
+                .join('');
+            temperatureSelect.value = DEFAULT_TEMPERATURE;
+
             // Create reaction select with labels
             const reactionLabel = document.createElement('div');
             reactionLabel.className = 'reaction-label';
@@ -838,6 +858,10 @@
             libraryContainer.appendChild(librarySelect);
 
             // Create reaction container
+            const temperatureContainer = document.createElement('div');
+            temperatureContainer.appendChild(temperatureLabelDiv);
+            temperatureContainer.appendChild(temperatureSelect);
+
             const reactionContainer = document.createElement('div');
             reactionContainer.appendChild(reactionLabel);
             reactionContainer.appendChild(reactionSelect);
@@ -845,6 +869,7 @@
             // Combine elements
             row.appendChild(materialContainer);
             row.appendChild(libraryContainer);
+            row.appendChild(temperatureContainer);
             row.appendChild(reactionContainer);
             row.appendChild(deleteBtn);
             
@@ -855,9 +880,10 @@
             async function updateAvailableReactions() {
                 const materialId = materialSelect.value;
                 const library = librarySelect.value;
+                const temperature = temperatureSelect.value;
                 showBusy('Loading material reactions...');
                 try {
-                    const material = await ensureMaterial(materialId, library);
+                    const material = await ensureMaterial(materialId, library, temperature);
                     const currentSelection = reactionSelect.value;
                     reactionSelect.innerHTML = '';
                     const blankOption = document.createElement('option');
@@ -885,7 +911,7 @@
             }
             
             // Add event listeners for selects
-            for (const select of [materialSelect, librarySelect]) {
+            for (const select of [materialSelect, librarySelect, temperatureSelect]) {
                 select.addEventListener('change', () => {
                     updateAvailableReactions().catch(error => {
                         console.error('Error updating available reactions:', error);
@@ -897,6 +923,7 @@
             // A row restored from the URL starts on what the link named;
             // otherwise the first row opens on pure Li-6, as it always has.
             if (preset?.library && LIBRARIES.some((l) => l.id === preset.library)) librarySelect.value = preset.library;
+            if (preset?.temperature && TEMPERATURES.includes(preset.temperature)) temperatureSelect.value = preset.temperature;
             materialSelect.value = definitionFor(preset?.materialId) ? preset.materialId : 'pure_li6';
 
             // Initialize the reaction select based on the default material
@@ -919,10 +946,11 @@
             for (const row of rows) {
                 const materialId = row.querySelector('.material-select').value;
                 const library = row.querySelector('.library-select').value;
+                const temperature = row.querySelector('.temperature-select').value;
                 const mt = row.querySelector('.reaction-select').value;
                 if (!materialId || !mt) continue;
-                const mat = materialData[materialKey(materialId, library)];
-                if (!mat || !mat.crossSections[mt]) tasks.push({ materialId, library, mt });
+                const mat = materialData[materialKey(materialId, library, temperature)];
+                if (!mat || !mat.crossSections[mt]) tasks.push({ materialId, library, temperature, mt });
             }
             let completed = 0;
             if (tasks.length) showBusy(`Computing cross sections 0/${tasks.length}...`);
@@ -931,25 +959,27 @@
             for (const row of rows) {
                 const materialSelect = row.querySelector('.material-select');
                 const librarySelect = row.querySelector('.library-select');
+                const temperatureSelect = row.querySelector('.temperature-select');
                 const reactionSelect = row.querySelector('.reaction-select');
-                const materialId = materialSelect.value; const library = librarySelect.value; const mt = reactionSelect.value;
+                const materialId = materialSelect.value; const library = librarySelect.value;
+                const temperature = temperatureSelect.value; const mt = reactionSelect.value;
                 if (!materialId || !mt) continue;
                 try {
-                    const mat = await ensureMaterial(materialId, library);
+                    const mat = await ensureMaterial(materialId, library, temperature);
                     if (!mat.crossSections[mt]) {
                         const mtInt = parseInt(mt); if (isNaN(mtInt)) continue;
-                        const res = await sendWorker('calc_xs', { materialId, mts: [mtInt], library });
+                        const res = await sendWorker('calc_xs', { materialId, mts: [mtInt], library, temperature });
                         if (!mat.energyGrid && res.energy_grid) mat.energyGrid = res.energy_grid;
                         Object.entries(res.cross_sections || {}).forEach(([k,v])=>{ if(!mat.crossSections[k]) mat.crossSections[k]=v; });
                         completed++; if (tasks.length) updateBusyMessage(`Computing cross sections ${completed}/${tasks.length}...`);
                         clearError();
                     }
                     if (!mat.crossSections[mt]) continue;
-                    plotData.push({ x: mat.energyGrid, y: mat.crossSections[mt], type:'scatter', mode:'lines', name: `${mat.name} - MT ${mt} - ${libraryLabel(library)}` });
+                    plotData.push({ x: mat.energyGrid, y: mat.crossSections[mt], type:'scatter', mode:'lines', name: `${mat.name} - MT ${mt} - ${libraryLabel(library)} - ${displayLabel(temperature)}` });
                     traceMts.push(Number(mt));
                 } catch(err) {
                     console.error('Plot update XS error', err);
-                    showError(`Could not compute MT ${mt} for ${materialId} from ${libraryLabel(library)}: ${err.message}`);
+                    showError(`Could not compute MT ${mt} for ${materialId} from ${libraryLabel(library)} at ${displayLabel(temperature)}: ${err.message}`);
                 }
             }
             if (tasks.length) hideBusy();
@@ -987,14 +1017,16 @@
             for (const row of rows) {
                 const materialSelect = row.querySelector('.material-select');
                 const librarySelect = row.querySelector('.library-select');
+                const temperatureSelect = row.querySelector('.temperature-select');
                 const reactionSelect = row.querySelector('.reaction-select');
                 
                 const materialId = materialSelect.value;
                 const library = librarySelect.value;
+                const temperature = temperatureSelect.value;
                 const mt = reactionSelect.value;
                 
                 // Skip if material data isn't loaded
-                const key = materialKey(materialId, library);
+                const key = materialKey(materialId, library, temperature);
                 if (!materialData[key]) {
                     continue;
                 }
@@ -1019,6 +1051,7 @@
                 exportData.push({
                     material: material.name,
                     library,
+                    temperature_K: kelvinOf(temperature),
                     reaction: mtName,
                     reactionId: mt,
                     units: energyRelease ? 'eV/cm' : '1/cm',

@@ -1,8 +1,8 @@
 // The plot as a URL: which rows are drawn, and any materials the user built.
 //
-//   #r=endf-b8.1:pure_li6:1;jeff-4.0:c1:205&m=<the custom materials>
+//   #r=endf-b8.1:pure_li6:294K:1;jeff-4.0:c1:900K:205&m=<the custom materials>
 //
-// A row is library, material and MT. A material id of `c1` names the first
+// A row is library, material, temperature and MT. A material id of `c1` names the first
 // custom material in `m`, so a link carries everything it needs: someone
 // opening it gets the composition as well as the plot.
 //
@@ -31,9 +31,9 @@ const fromBase64Url = (text) => {
 /// hash rather than a hash saying nothing.
 export function encodeState({ rows = [], materials = [] } = {}) {
   const parts = [];
-  const drawn = rows.filter((r) => r.library && r.materialId && r.mt);
+  const drawn = rows.filter((r) => r.library && r.materialId && r.temperature && r.mt);
   if (drawn.length) {
-    parts.push(`r=${drawn.map((r) => `${r.library}:${r.materialId}:${r.mt}`).join(';')}`);
+    parts.push(`r=${drawn.map((r) => `${r.library}:${r.materialId}:${r.temperature}:${r.mt}`).join(';')}`);
   }
   // Only the custom materials a row actually uses: a link should carry the
   // plot, not the whole of someone's saved list.
@@ -65,8 +65,8 @@ export function decodeState(hash) {
   }
   if (fields.has('r')) {
     for (const row of fields.get('r').split(';')) {
-      const m = /^([A-Za-z0-9.-]+):([A-Za-z0-9_]+):(\d+)$/.exec(row);
-      if (m) state.rows.push({ library: m[1], materialId: m[2], mt: Number(m[3]) });
+      const m = /^([A-Za-z0-9.-]+):([A-Za-z0-9_]+):(\d+K):(\d+)$/.exec(row);
+      if (m) state.rows.push({ library: m[1], materialId: m[2], temperature: m[3], mt: Number(m[4]) });
     }
   }
   return state;

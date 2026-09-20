@@ -64,13 +64,27 @@ step('it plots like any other material', first.name.startsWith('Enriched lithium
 
 await page.waitForTimeout(500);
 const hash = await page.evaluate(() => location.hash);
-step('the link carries the plot and the composition', hash.includes('r=endf-b8.1:c1:1') && hash.includes('&m='), `${hash.slice(0, 60)}...`);
+step('the link carries the plot and the composition', hash.includes('r=endf-b8.1:c1:294K:1') && hash.includes('&m='), `${hash.slice(0, 60)}...`);
 
 await page.goto(`${url}index.html${hash}`, { waitUntil: 'load' });
 await plotted(1);
 const restored = await page.evaluate(() => ({ chips: document.querySelectorAll('.custom-chip').length, ...{ name: document.getElementById('plot').data[0].name, y0: document.getElementById('plot').data[0].y[0] } }));
 step('opening the link restores it without duplicating it',
   restored.chips === 1 && restored.name === first.name && restored.y0 === first.y0, JSON.stringify(restored));
+
+// The same material at another temperature is another trace.
+await page.click('#add-reaction-btn');
+const second = page.locator('.reaction-row').nth(1);
+await second.locator('.material-select').selectOption('c1');
+await second.locator('.temperature-select').selectOption('2500K');
+await second.locator('.reaction-select').selectOption('1');
+await plotted(2);
+const both = await page.evaluate(() => document.getElementById('plot').data.map((d) => ({ name: d.name, y0: d.y[0] })));
+step('the same material plots at two temperatures',
+  both[1].name.endsWith('2500 K') && both[0].name.endsWith('294 K') && both[1].y0 !== both[0].y0,
+  `${both[0].y0.toPrecision(5)} at 294 K, ${both[1].y0.toPrecision(5)} at 2500 K`);
+await second.locator('.reaction-delete').click();
+await plotted(1);
 
 await page.click('.custom-chip button[data-edit]');
 await fillComponent(0, 'Li6', 0.95);

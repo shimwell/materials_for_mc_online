@@ -13,6 +13,18 @@ TENDL-2017 or FENDL-3.2d), so one material can be compared across libraries.
 
 The online site is here: [https://shimwell.github.io/materials_for_mc_online/](https://shimwell.github.io/materials_for_mc_online/)
 
+## Temperature
+
+Each row picks a temperature as well as a library, so a material can be drawn
+against itself at another temperature. The six the libraries publish are
+offered, 250, 294, 600, 900, 1200 and 2500 K, all Doppler broadened from the
+same evaluation; a row starts at 294 K. Plot U238 capture at 294 K and again
+at 2500 K to watch the 6.67 eV resonance flatten from 345 to 138 per cm.
+
+The 0 K grid the libraries also publish is not offered: only elastic
+scattering has a 0 K table, and a macroscopic cross section always needs the
+total as well.
+
 ## Building your own material
 
 The materials the page ships with are a starting point, not the limit. **New
@@ -45,7 +57,8 @@ Each nuclide is published as a directory of Arrow IPC files, written one
 record batch per temperature (`energy.arrow`) and one per reaction and
 temperature (`reactions.arrow`). The directory's `version.json` carries the
 byte range of every batch. The page reads that index and issues HTTP range
-requests for only the 294 K energy grid and the reactions it is asked to plot,
+requests for only the energy grid of the temperature a row asks for and the
+reactions it is asked to plot,
 then splices the pieces into Arrow streams for the wasm reader. Choosing a new
 reaction costs one small range request per nuclide rather than a reload, and no
 cross section data is kept in this repository.
@@ -56,6 +69,7 @@ cross section data is kept in this repository.
 - `ranges.js`: byte-range planning and Arrow stream splicing, no DOM or network
 - `mt_names.js`: ENDF reaction names by MT number, generated from the `endf` crate in `core`
 - `libraries.js`: the libraries on offer, shared by the page and the engine
+- `temperatures.js`: the temperatures on offer, and how a label is spelled
 - `custom_materials.js`: materials the user builds, with their validation and storage
 - `url_state.js`: the plot and any custom materials as a URL hash
 - `materials.json`: the material definitions the page ships with
