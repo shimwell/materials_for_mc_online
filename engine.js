@@ -351,8 +351,12 @@ export function createEngine({ origin = ORIGIN, fetchImpl = fetch } = {}) {
     WasmConfig.set_cross_sections(Object.fromEntries(material.entries.map((e) => [e.name, e.dir])));
     const wasm = new WasmMaterial();
     try {
-      for (const e of def.elements ?? []) wasm.add_element(e.name, e.fraction);
-      for (const n of def.nuclides ?? []) wasm.add_nuclide(n.name, n.fraction);
+      // `fraction_type` is per component in the wasm but per material here:
+      // the builder asks once, and a prebuilt material omits it and takes the
+      // wasm's default of atom fractions, which is what materials.json holds.
+      const fractionType = def.fraction_type ?? null;
+      for (const e of def.elements ?? []) wasm.add_element(e.name, e.fraction, fractionType);
+      for (const n of def.nuclides ?? []) wasm.add_nuclide(n.name, n.fraction, fractionType);
       // `set_density` is what builds the underlying material, and the
       // temperature setter only applies to a built one, so this order matters.
       wasm.set_density(def.density.unit, def.density.value);
@@ -393,5 +397,27 @@ export function createEngine({ origin = ORIGIN, fetchImpl = fetch } = {}) {
     return { energyGrid: energyGrid ?? new Float64Array(0), crossSections };
   }
 
-  return { createMaterial, calculateXs, requiredNuclides, get rangesStripped() { return rangesStripped; } };
+  /// Forget a material, in every library it was built for.
+  ///
+  /// A custom material keeps its id when its composition is edited, and the
+  /// built wasm material behind that id would otherwise still be the old one.
+  function forgetMaterial(materialId) {
+    for (const [key, material] of materials) {
+      if (key.slice(key.indexOf('/') + 1) !== materialId) continue;
+      if (material.wasm) material.wasm.free();
+      materials.delete(key);
+    }
+  }
+
+  /// The elements the nuclear data knows, each with the nuclides natural
+  /// abundance expands it to. The page uses the names to check a hand-typed
+  /// composition before it fetches anything.
+  function elements() {
+    return Object.fromEntries([...elementMap].map(([element, nuclides]) => [element, [...nuclides]]));
+  }
+
+  return {
+    createMaterial, calculateXs, requiredNuclides, elements, forgetMaterial,
+    get rangesStripped() { return rangesStripped; },
+  };
 }
