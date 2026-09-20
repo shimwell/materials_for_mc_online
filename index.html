@@ -345,6 +345,7 @@
             <div class="materials-header">
                 <span class="materials-title">Your materials</span>
                 <button id="new-material-btn" class="secondary-btn" type="button">+ New material</button>
+                <button id="clear-materials-btn" class="secondary-btn" type="button" hidden>Remove all</button>
                 <span class="info-text">Build one from elements and nuclides, then plot it beside the built-in materials.</span>
             </div>
             <div id="custom-list" class="custom-list"></div>
@@ -581,6 +582,7 @@
 
         function wireBuilder() {
             document.getElementById('new-material-btn').addEventListener('click', () => openBuilder());
+            document.getElementById('clear-materials-btn').addEventListener('click', clearCustomMaterials);
             document.getElementById('builder-cancel').addEventListener('click', closeBuilder);
             document.getElementById('add-component-btn').addEventListener('click', () => {
                 document.getElementById('component-rows').insertAdjacentHTML('beforeend', componentRowHtml());
@@ -656,6 +658,12 @@
 
         function renderCustomList() {
             const list = document.getElementById('custom-list');
+            // The button is only offered when there is something to remove, and
+            // it says how much: someone coming back to a list they built a year
+            // ago should be told what they are about to lose.
+            const clearButton = document.getElementById('clear-materials-btn');
+            clearButton.hidden = customMaterials.length === 0;
+            clearButton.textContent = `Remove all ${customMaterials.length}`;
             list.innerHTML = customMaterials.map((def, i) => {
                 const id = customId(i);
                 return `<span class="custom-chip"><span>${escapeHtml(def.name)}</span>` +
@@ -759,6 +767,34 @@
             }
             customMaterials.splice(index, 1);
             saveStored(window.localStorage, customMaterials);
+            refreshMaterialSelects();
+            updatePlot();
+        }
+
+        /// Remove every material the user has built, here and in the browser.
+        ///
+        /// Their materials outlive the visit, so this is the way back to a
+        /// clean page without clearing the whole site's storage by hand.
+        async function clearCustomMaterials() {
+            if (!customMaterials.length) return;
+            const count = customMaterials.length;
+            const question = count === 1
+                ? `Remove the material you built, ${customMaterials[0].name}? This cannot be undone.`
+                : `Remove all ${count} materials you have built? This cannot be undone.`;
+            if (!window.confirm(question)) return;
+
+            const ids = customMaterials.map((_, i) => customId(i));
+            const fallback = Object.keys(materialDefinitions)[0];
+            for (const select of document.querySelectorAll('.material-select')) {
+                if (isCustomId(select.value)) select.value = fallback;
+            }
+            await Promise.all(ids.map((id) => sendWorker('forget_material', { materialId: id }).catch(() => {})));
+            for (const key of Object.keys(materialData)) {
+                if (isCustomId(key.split('/')[1])) delete materialData[key];
+            }
+            customMaterials = [];
+            saveStored(window.localStorage, customMaterials);
+            closeBuilder();
             refreshMaterialSelects();
             updatePlot();
         }
