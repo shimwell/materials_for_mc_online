@@ -682,7 +682,9 @@
             document.getElementById('builder-unit').value = form?.unit ?? DENSITY_UNITS[0];
             const type = form?.fractionType ?? 'atom';
             for (const radio of builder.querySelectorAll('input[name="fraction-type"]')) radio.checked = radio.value === type;
-            const rows = form?.components?.length ? form.components : [{}, {}];
+            // One empty row to start: most materials being tried out are a
+            // single element, and Add component is right there for the rest.
+            const rows = form?.components?.length ? form.components : [{}];
             document.getElementById('component-rows').innerHTML = rows.map(componentRowHtml).join('');
             document.getElementById('builder-save').textContent = id ? 'Save changes' : 'Save material';
             showBuilderErrors([]);

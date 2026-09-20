@@ -41,8 +41,11 @@ await page.waitForFunction(() => document.querySelector('.reaction-select')?.opt
 step('the page opens on a built-in material', (await page.textContent('.material-select option:checked')) === 'Pure Li-6');
 
 await page.click('#new-material-btn');
+step('the builder opens with one component',
+  (await page.locator('#component-rows tr').count()) === 1);
 await page.fill('#builder-name', 'Enriched lithium');
 await fillComponent(0, 'Li6', 0.6);
+await page.click('#add-component-btn');
 await fillComponent(1, 'Li7', 0.4);
 await page.fill('#builder-density', '0.534');
 await page.click('#builder-save');
