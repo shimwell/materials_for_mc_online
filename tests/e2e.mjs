@@ -129,6 +129,13 @@ await page.click('#clear-materials-btn');
 await page.waitForFunction(() => document.querySelectorAll('.custom-chip').length === 0, null, { timeout: 20000 });
 const leftover = await page.evaluate(() => window.localStorage.getItem('materials_for_mc_online.custom'));
 step('they are gone from the browser too, not just the page', leftover === '[]', String(leftover));
+// The URL is the other place a material persists, and syncUrl debounces by
+// 200 ms, so it is still describing the old plot for a moment after the chips
+// and localStorage have gone. Reloading inside that window restores the
+// material from the hash, which is the page working as intended for a shared
+// link and a race in this test. Wait for the URL to stop naming a material
+// before asking whether a reload brings one back.
+await page.waitForFunction(() => !/[#&]m=/.test(location.hash), null, { timeout: 5000 });
 await page.reload({ waitUntil: 'load' });
 await page.waitForFunction(() => document.querySelector('.reaction-select')?.options.length > 2, null, { timeout: 120000 });
 step('and they stay gone after a reload',
