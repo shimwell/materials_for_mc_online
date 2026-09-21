@@ -1,0 +1,79 @@
+# Run the tests this repository already has.
+#
+# There were 18 unit tests and a Playwright end-to-end run here before this
+# workflow existed, and nothing ran either: a change could break the page and
+# the only way to find out was to open it. The sibling browser apps both gate on
+# their tests (nuclide_cross_section_plotter's `gh_pages.yml`, yani-online's
+# `pages.yml`), and this is the same shape.
+#
+# Deployment is deliberately NOT here. The site is served by classic GitHub
+# Pages straight off `main` with no build step, and moving that into a workflow
+# is a separate decision with its own way of going wrong. This only reports.
+
+name: Tests
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A push and its pull request would otherwise run the same commit twice, and
+# the end-to-end job fetches real nuclear data.
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # custom materials, temperatures, URL state and the byte-range
+      # arithmetic. No browser and no network.
+      - run: npm test
+
+  e2e:
+    name: End to end in Chromium
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      # `tests/e2e.mjs` drives the page against the live data host, which is
+      # the point of it: the builder has to reach the worker, come back as
+      # numbers, survive a reload and be undone again, and the cross sections
+      # have to move when the composition does. That needs real data.
+      #
+      # It is therefore the one job here that can fail for a reason outside
+      # this repository. A failure that names a fetch rather than an assertion
+      # is the data host, not the page.
+      - name: Drive the page against the published data
+        run: |
+          python3 -m http.server 8020 --bind 127.0.0.1 &
+          sleep 1
+          node tests/e2e.mjs --url http://127.0.0.1:8020/
+
+      # The run writes screenshots whether it passed or not, and a failure in a
+      # browser is far quicker to read as a picture than as a stack.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: tests/screenshots/
+          if-no-files-found: ignore
