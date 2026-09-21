@@ -50,6 +50,57 @@ const TOTAL_MT = 1;
 const SECTIONS_WHOLE = ['version.json', 'nuclide.arrow'];
 const KNOWN_LIBRARIES = new Set(LIBRARIES.map((l) => l.id));
 
+// The naming and validation below sit outside createEngine so they can be
+// tested without a wasm module. They are what a fetch and a lookup are built
+// from, and a mistake in any of them fails as a 404 or as data quietly
+// attributed to the wrong material, not as a stack trace.
+
+/// Where a section of one nuclide lives on the data host.
+///
+/// The published layout, which the page does not get to choose:
+/// `<origin>/<library>/neutron/<Nuclide>.arrow/<file>`.
+export const dataUrl = (origin, library, name, file) =>
+  `${origin}/${library}/neutron/${name}.arrow/${file}`;
+
+/// Where the same sections are registered in the wasm filesystem. The loader
+/// resolves a nuclide by this path, so it has to match what add_file wrote.
+export const storeDir = (library, name) => `/${library}/${name}.arrow`;
+
+/// A material is one composition, from one library, at one temperature: all
+/// three belong in its key, or switching temperature would reuse the material
+/// built for the previous one.
+export const materialKey = (library, id, temperature) => `${library}/${id}/${temperature}`;
+
+/// The id back out of a material key.
+///
+/// Paired with materialKey deliberately. forgetMaterial has to drop every
+/// library and temperature a given id was built at, and it used to do that by
+/// reaching into the second segment inline; a change to the key format would
+/// then have silently forgotten the wrong materials.
+export const materialIdFromKey = (key) => key.split('/')[1];
+
+/// A nuclide is one name from one library; its temperatures live inside it,
+/// because one download carries every temperature the file publishes.
+export const nuclideKey = (library, name) => `${library}/${name}`;
+
+/// Refuse a temperature the published data does not carry, at the boundary,
+/// rather than letting it become an empty plan and a nuclide that reacts at
+/// zero without saying so.
+export function checkTemperature(temperature) {
+  if (!isPublished(temperature)) {
+    throw new Error(`${temperature} is not one of the temperatures the data publishes`);
+  }
+  return temperature;
+}
+
+/// Refuse an unknown library the same way, naming the ones there are.
+export function checkLibrary(library) {
+  if (!KNOWN_LIBRARIES.has(library)) {
+    throw new Error(`unknown library ${library}; one of ${[...KNOWN_LIBRARIES].join(', ')}`);
+  }
+  return library;
+}
+
 /// Build the engine. The wasm module must already be initialised.
 export function createEngine({ origin = ORIGIN, fetchImpl = fetch } = {}) {
   // Owns the in-memory storage backend the wasm reads nuclear data from.
@@ -67,26 +118,10 @@ export function createEngine({ origin = ORIGIN, fetchImpl = fetch } = {}) {
   /// so a plan of several spans does not download the file several times.
   let rangesStripped = false;
 
-  const url = (library, name, file) => `${origin}/${library}/neutron/${name}.arrow/${file}`;
-  const dir = (library, name) => `/${library}/${name}.arrow`;
-  /// A material is one composition, from one library, at one temperature.
-  const key = (library, id, temperature) => `${library}/${id}/${temperature}`;
-  /// A nuclide is one name from one library; its temperatures live inside it.
-  const nuclideKey = (library, name) => `${library}/${name}`;
-
-  function checkTemperature(temperature) {
-    if (!isPublished(temperature)) {
-      throw new Error(`${temperature} is not one of the temperatures the data publishes`);
-    }
-    return temperature;
-  }
-
-  function checkLibrary(library) {
-    if (!KNOWN_LIBRARIES.has(library)) {
-      throw new Error(`unknown library ${library}; one of ${[...KNOWN_LIBRARIES].join(', ')}`);
-    }
-    return library;
-  }
+  // Bound to this engine's origin; the rest are the module-level helpers above.
+  const url = (library, name, file) => dataUrl(origin, library, name, file);
+  const dir = storeDir;
+  const key = materialKey;
 
   async function fetchBytes(target, range = null) {
     const resp = await fetchImpl(target, range ? { headers: { Range: rangeHeader(range) } } : undefined);
@@ -485,7 +520,7 @@ export function createEngine({ origin = ORIGIN, fetchImpl = fetch } = {}) {
     for (const [key, material] of materials) {
       // `library/materialId/temperature`, so the id is the middle segment and
       // every library and temperature it was built at is dropped together.
-      if (key.split('/')[1] !== materialId) continue;
+      if (materialIdFromKey(key) !== materialId) continue;
       if (material.wasm) material.wasm.free();
       materials.delete(key);
     }
