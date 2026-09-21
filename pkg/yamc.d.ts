@@ -78,6 +78,32 @@ export class WasmSimulation {
      */
     boundingBox(): Float64Array;
     /**
+     * Fetch the nuclear data the loaded model needs and does not yet hold
+     * into the in-memory store, from `library_url` (see
+     * [`default_library_url`](super::simulation_wasm::default_library_url)).
+     *
+     * Each required nuclide is fetched as its published section objects. Where
+     * `version.json` carries the byte-range index, `reactions.arrow` and
+     * `energy.arrow` come as the ranges of the temperature each material is at
+     * (or the two that bracket it), which is most of the saving: on
+     * ENDF/B-VIII.1 one temperature of a nuclide's reactions is about a sixth
+     * of them. Per-element photon data follows when the model has photons in
+     * flight. A nuclide or element whose data is already in the store (fetched
+     * earlier, or embedded by the exporting Python) is skipped.
+     *
+     * `on_progress`, when given, is called as `(message, done, total)` as each
+     * nuclide or element starts.
+     *
+     * Resolves to a JSON string,
+     * `{"status":"ok","nuclides":[...],"ranged":[...],"elements":[...],"requests":n,"bytes":n}`,
+     * where `ranged` lists the nuclides whose reactions were fetched by byte
+     * range. Rejects with a message naming the URL that failed. A material
+     * temperature the published data does not cover is refused before any
+     * bytes are fetched for that nuclide, with the same message the loader
+     * would give.
+     */
+    fetchNuclearData(library_url: string, on_progress?: Function | null): Promise<any>;
+    /**
      * Number of files currently held in the in-memory backend.
      */
     file_count(): number;
@@ -94,6 +120,18 @@ export class WasmSimulation {
      * loaded model. Returns an error string on parse failure.
      */
     load_model_json(json: string): void;
+    /**
+     * The required photon elements whose section set is not in the store
+     * yet, comma-joined. See [`Self::model_missing_nuclides`].
+     */
+    model_missing_elements(): string;
+    /**
+     * The required nuclides whose section set is not in the store yet,
+     * comma-joined; empty when transport can run. What the host's
+     * Simulate gate reads, so that the answer comes from the store itself
+     * rather than from bookkeeping the host keeps beside it.
+     */
+    model_missing_nuclides(): string;
     /**
      * Element symbols the loaded model needs *photon* data for, comma-
      * joined. Empty when the model has no photons in flight (no photon
@@ -194,6 +232,13 @@ export class WasmSimulation {
     tallyPlotHtml(params_json: string): string;
 }
 
+/**
+ * The published library `fetchNuclearData` reads from unless the host names
+ * another: the neutron and photon section objects of ENDF/B-VIII.1 on the yamc
+ * data CDN. Exposed so an exported page has one source for the URL.
+ */
+export function default_library_url(): string;
+
 export function element_names(): any;
 
 export function element_nuclides(): any;
@@ -214,6 +259,7 @@ export interface InitOutput {
     readonly __wbg_wasmnuclide_free: (a: number, b: number) => void;
     readonly __wbg_wasmreaction_free: (a: number, b: number) => void;
     readonly __wbg_wasmsimulation_free: (a: number, b: number) => void;
+    readonly default_library_url: () => [number, number];
     readonly element_names: () => any;
     readonly element_nuclides: () => any;
     readonly natural_abundance: () => any;
@@ -251,9 +297,12 @@ export interface InitOutput {
     readonly wasmreaction_to_json: (a: number) => [number, number, number];
     readonly wasmsimulation_add_file: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly wasmsimulation_boundingBox: (a: number) => [number, number, number, number];
+    readonly wasmsimulation_fetchNuclearData: (a: number, b: number, c: number, d: number) => any;
     readonly wasmsimulation_file_count: (a: number) => number;
     readonly wasmsimulation_geometryJson: (a: number) => [number, number, number, number];
     readonly wasmsimulation_load_model_json: (a: number, b: number, c: number) => [number, number];
+    readonly wasmsimulation_model_missing_elements: (a: number) => [number, number];
+    readonly wasmsimulation_model_missing_nuclides: (a: number) => [number, number];
     readonly wasmsimulation_model_required_elements: (a: number) => [number, number];
     readonly wasmsimulation_model_required_nuclides: (a: number) => [number, number];
     readonly wasmsimulation_new: () => number;
@@ -262,12 +311,15 @@ export interface InitOutput {
     readonly wasmsimulation_sampleSourcePoints: (a: number, b: number, c: bigint) => [number, number, number, number];
     readonly wasmsimulation_simulate_transport: (a: number, b: number, c: number, d: bigint) => [number, number];
     readonly wasmsimulation_tallyPlotHtml: (a: number, b: number, c: number) => [number, number, number, number];
+    readonly wasm_bindgen_889ceef3cf823535___convert__closures_____invoke___js_sys_937819f340de9a46___Function_fn_wasm_bindgen_889ceef3cf823535___JsValue_____wasm_bindgen_889ceef3cf823535___sys__Undefined___js_sys_937819f340de9a46___Function_fn_wasm_bindgen_889ceef3cf823535___JsValue_____wasm_bindgen_889ceef3cf823535___sys__Undefined_______true_: (a: number, b: number, c: any, d: any) => void;
+    readonly wasm_bindgen_889ceef3cf823535___convert__closures_____invoke___wasm_bindgen_889ceef3cf823535___JsValue__core_f0fd674eaa06beef___result__Result_____wasm_bindgen_889ceef3cf823535___JsError___true_: (a: number, b: number, c: any) => [number, number];
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
-    readonly __wbindgen_free: (a: number, b: number, c: number) => void;
     readonly __wbindgen_exn_store: (a: number) => void;
     readonly __externref_table_alloc: () => number;
     readonly __wbindgen_externrefs: WebAssembly.Table;
+    readonly __wbindgen_free: (a: number, b: number, c: number) => void;
+    readonly __wbindgen_destroy_closure: (a: number, b: number) => void;
     readonly __externref_table_dealloc: (a: number) => void;
     readonly __wbindgen_start: () => void;
 }
