@@ -13,7 +13,15 @@
 // section against a 39 MB file.
 //
 // Nothing here touches the DOM or the network, so the arithmetic can be run
-// under Node against the fixture files as well as in the worker.
+// under Node against the fixture files as well as in the worker, which is what
+// `tests/ranges.test.mjs` does.
+//
+// This file is a verbatim copy of the one in nuclide_cross_section_plotter, and
+// yani-online carries a third, larger variant of the same idea. Copies rather
+// than a shared package on purpose: these are three static sites with no build
+// step, and a dependency between them would buy less than it costs. The price
+// of that choice is that each copy has to be tested where it lives, which is
+// why these tests exist here rather than being assumed from the plotter's.
 
 /// The 8-byte end-of-stream marker: a continuation marker followed by a zero
 /// metadata length. Without it a decoder treats the stream as truncated rather
