@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "description": "Macroscopic cross section plotter for a collection of materials, and any you build",
+  "license": "MIT OR Apache-2.0",
   "scripts": {
     "test": "node --test \"tests/**/*.test.mjs\"",
     "e2e": "node tests/e2e.mjs",
