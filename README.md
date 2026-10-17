@@ -7,7 +7,9 @@ Materials_for_MC).
 The page plots macroscopic neutron cross sections for a collection of
 materials. The Rust material code runs in the browser as wasm, and the nuclear
 data is fetched on demand from the published Arrow files at
-[yamc-data.xsplot.com](https://yamc-data.xsplot.com). Each row of the plot
+[yamc-data.xsplot.com](https://yamc-data.xsplot.com), from the release each
+library's `latest.json` names, with every downloaded piece checked against the
+sha256 its `version.json` gives. Each row of the plot
 picks its own library (ENDF/B-VIII.1, JEFF-4.0, JENDL-5.0, TENDL-2025,
 TENDL-2017 or FENDL-3.2d), so one material can be compared across libraries.
 

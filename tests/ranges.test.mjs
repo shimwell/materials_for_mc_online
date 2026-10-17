@@ -14,35 +14,39 @@ import {
   coalesce, planFetch, spliceStream, rangeHeader,
 } from '../ranges.js';
 
+/// An index entry as the converter writes it, `[offset, length, sha256]`; the
+/// stand-in hash names the offset so a mix-up shows in a failure.
+const at = (off, len) => [off, len, `sha-${off}`];
+
 /// A version.json in the shape the converter writes: one batch per
 /// (MT, temperature) for reactions, one per temperature for the grids.
 const version = {
   reaction_ranges: {
-    schema: [64, 704],
+    schema: at(64, 704),
     mts: {
-      1: { '294K': [768, 100], '600K': [868, 100] },
-      2: { '294K': [968, 100], '600K': [1068, 100] },
-      102: { '294K': [1168, 100] },
+      1: { '294K': at(768, 100), '600K': at(868, 100) },
+      2: { '294K': at(968, 100), '600K': at(1068, 100) },
+      102: { '294K': at(1168, 100) },
     },
   },
   energy_ranges: {
-    schema: [64, 384],
-    temperatures: { '0K': [448, 50], '294K': [498, 50], '600K': [548, 50] },
+    schema: at(64, 384),
+    temperatures: { '0K': at(448, 50), '294K': at(498, 50), '600K': at(548, 50) },
   },
 };
 
 test('the reaction index reads as MT then temperature', () => {
   const r = reactionRanges(version);
-  assert.deepEqual(r.schema, { off: 64, len: 704 });
-  assert.deepEqual(r.mts.get(1).get('294K'), { off: 768, len: 100 });
-  assert.deepEqual(r.mts.get(102).get('294K'), { off: 1168, len: 100 });
+  assert.deepEqual(r.schema, { off: 64, len: 704, sha256: 'sha-64' });
+  assert.deepEqual(r.mts.get(1).get('294K'), { off: 768, len: 100, sha256: 'sha-768' });
+  assert.deepEqual(r.mts.get(102).get('294K'), { off: 1168, len: 100, sha256: 'sha-1168' });
   assert.equal(r.mts.get(102).has('600K'), false, 'MT 102 is only published at 294 K here');
 });
 
 test('the energy index reads as temperature to range', () => {
   const e = energyRanges(version);
-  assert.deepEqual(e.schema, { off: 64, len: 384 });
-  assert.deepEqual(e.temperatures.get('294K'), { off: 498, len: 50 });
+  assert.deepEqual(e.schema, { off: 64, len: 384, sha256: 'sha-64' });
+  assert.deepEqual(e.temperatures.get('294K'), { off: 498, len: 50, sha256: 'sha-498' });
   // The 0 K grid is kept even though no cross section is tabulated there: the
   // NJOY route publishes one, and dropping it would make a ranged read offer
   // less than a whole-file read.
@@ -54,15 +58,17 @@ test('the energy index reads as temperature to range', () => {
 // channel silently absent, and a nuclide missing a channel reacts at zero
 // without saying so.
 test('an index in the shape from before the temperature split reads as none', () => {
-  assert.equal(reactionRanges({ reaction_ranges: { schema: [64, 704], mts: { 1: [768, 100] } } }), null);
+  assert.equal(reactionRanges({ reaction_ranges: { schema: at(64, 704), mts: { 1: at(768, 100) } } }), null);
 });
 
 test('a missing or malformed index reads as none', () => {
   assert.equal(reactionRanges(undefined), null);
   assert.equal(reactionRanges({}), null);
   assert.equal(reactionRanges({ reaction_ranges: { mts: {} } }), null);
-  assert.equal(reactionRanges({ reaction_ranges: { schema: [64], mts: { 1: { '294K': [1, 2] } } } }), null,
-    'a schema that is not a pair is not a schema');
+  assert.equal(reactionRanges({ reaction_ranges: { schema: [64, 704], mts: { 1: { '294K': at(1, 2) } } } }), null,
+    'an entry without its sha256 is not an entry');
+  assert.equal(reactionRanges({ reaction_ranges: { schema: at(64, 704), mts: { 1: { '294K': [1, 2] } } } }), null,
+    'nor is a batch range without one');
   assert.equal(energyRanges({ energy_ranges: { schema: [64, 384], temperatures: {} } }), null);
 });
 
@@ -94,7 +100,7 @@ test('a plan leads with the schema and drops duplicate batches', () => {
   const r = reactionRanges(version);
   const batches = [r.mts.get(1).get('294K'), r.mts.get(2).get('294K'), r.mts.get(1).get('294K')];
   const plan = planFetch(r.schema, batches, 0);
-  assert.deepEqual(plan.parts[0], { off: 64, len: 704 }, 'a stream whose schema is not first does not decode');
+  assert.deepEqual(plan.parts[0], { off: 64, len: 704, sha256: 'sha-64' }, 'a stream whose schema is not first does not decode');
   assert.equal(plan.parts.length, 3, 'the repeated batch is asked for once');
   assert.deepEqual(plan.parts.map((p) => p.off), [64, 768, 968], 'parts are in file order');
 });

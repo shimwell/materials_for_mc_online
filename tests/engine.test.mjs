@@ -13,7 +13,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  ORIGIN, dataUrl, storeDir, materialKey, materialIdFromKey, nuclideKey,
+  ORIGIN, dataUrl, latestUrl, releaseFromLatest, storeDir, materialKey, materialIdFromKey, nuclideKey,
   checkTemperature, checkLibrary,
 } from '../engine.js';
 import { LIBRARIES, DEFAULT_LIBRARY } from '../libraries.js';
@@ -21,19 +21,30 @@ import { DEFAULT_TEMPERATURE } from '../temperatures.js';
 
 test('a data URL follows the published layout', () => {
   assert.equal(
-    dataUrl(ORIGIN, 'endf-b8.1', 'Fe56', 'reactions.arrow'),
-    'https://yamc-data.xsplot.com/endf-b8.1/neutron/Fe56.arrow/reactions.arrow',
+    dataUrl(ORIGIN, 'endf-b8.1', '2026-10-12.1', 'Fe56', 'reactions.arrow'),
+    'https://yamc-data.xsplot.com/endf-b8.1/2026-10-12.1/neutron/Fe56.arrow/reactions.arrow',
   );
   // The layout is the data host's, not this page's: nuclide directories carry
-  // the .arrow suffix and sit under a per-particle directory.
-  assert.match(dataUrl(ORIGIN, 'jeff-4.0', 'Li6', 'version.json'), /\/jeff-4\.0\/neutron\/Li6\.arrow\/version\.json$/);
+  // the .arrow suffix and sit under a release and a per-particle directory.
+  assert.match(dataUrl(ORIGIN, 'jeff-4.0', 'r1', 'Li6', 'version.json'), /\/jeff-4\.0\/r1\/neutron\/Li6\.arrow\/version\.json$/);
+  assert.equal(latestUrl(ORIGIN, 'jeff-4.0'), 'https://yamc-data.xsplot.com/jeff-4.0/latest.json');
 });
 
 test('the origin is substituted, so a test host can stand in for the real one', () => {
   assert.equal(
-    dataUrl('http://127.0.0.1:8770', 'endf-b8.1', 'Li6', 'energy.arrow'),
-    'http://127.0.0.1:8770/endf-b8.1/neutron/Li6.arrow/energy.arrow',
+    dataUrl('http://127.0.0.1:8770', 'endf-b8.1', 'r1', 'Li6', 'energy.arrow'),
+    'http://127.0.0.1:8770/endf-b8.1/r1/neutron/Li6.arrow/energy.arrow',
   );
+});
+
+test('latest.json names the release, and a pointer this page cannot follow is refused', () => {
+  const latest = { schema: 'yamc-data-latest', schema_version: 1, keyword: 'endf-b8.1', release: '2026-10-12.1', format_version: 2 };
+  assert.equal(releaseFromLatest(latest, 'endf-b8.1'), '2026-10-12.1');
+  assert.throws(() => releaseFromLatest({ ...latest, format_version: 3 }, 'endf-b8.1'),
+    /endf-b8.1 release 2026-10-12.1 is data format 3; this page reads format 2/);
+  assert.throws(() => releaseFromLatest(latest, 'jeff-4.0'), /latest.json for jeff-4.0 is for endf-b8.1/);
+  assert.throws(() => releaseFromLatest({ ...latest, release: '' }, 'endf-b8.1'), /does not name a release/);
+  assert.throws(() => releaseFromLatest(null, 'endf-b8.1'), /does not name a release/);
 });
 
 test('the store path names the same nuclide directory the URL does', () => {
@@ -42,7 +53,7 @@ test('the store path names the same nuclide directory the URL does', () => {
   // to were fetched from that URL, so the two have to agree on the directory
   // name. They are not otherwise the same shape: the URL carries a particle
   // segment the store path does not.
-  const urlDir = dataUrl(ORIGIN, 'endf-b8.1', 'Pb208', 'reactions.arrow').split('/').at(-2);
+  const urlDir = dataUrl(ORIGIN, 'endf-b8.1', '2026-10-12.1', 'Pb208', 'reactions.arrow').split('/').at(-2);
   const storeDirName = storeDir('endf-b8.1', 'Pb208').split('/').at(-1);
   assert.equal(storeDirName, urlDir, 'store path and URL disagree about the nuclide directory');
   assert.equal(urlDir, 'Pb208.arrow');

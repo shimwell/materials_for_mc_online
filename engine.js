@@ -2,12 +2,18 @@
 // asks the yamc wasm for macroscopic cross sections.
 //
 // Data comes from the published Arrow directories at `ORIGIN`, one directory
-// per library and nuclide, and only the pieces this page draws are downloaded:
+// per library release and nuclide, and only the pieces this page draws are
+// downloaded:
 //
 //   version.json    whole (a few tens of kB), it carries the byte-range index
 //   nuclide.arrow   whole (3 kB)
 //   energy.arrow    the schema and one record batch per temperature drawn
 //   reactions.arrow the schema and one record batch per (wanted MT, temperature)
+//
+// Each library is published as immutable releases; `<library>/latest.json`
+// names the current one and is read once per library, so every file of a
+// library comes from one release. Every ranged piece is checked against the
+// sha256 version.json gives for it before it is used.
 //
 // The pieces are spliced into Arrow IPC streams and handed to the wasm's
 // in-memory filesystem, where the reader treats them exactly like the whole
@@ -43,6 +49,8 @@ import { LIBRARIES, DEFAULT_LIBRARY } from './libraries.js';
 import { DEFAULT_TEMPERATURE, isPublished, bareLabel } from './temperatures.js';
 
 export const ORIGIN = 'https://yamc-data.xsplot.com';
+/// The release `format_version`s this page can read.
+export const SUPPORTED_FORMAT_VERSIONS = Object.freeze([2]);
 /// Total cross section. The macroscopic calculation always needs it, whatever
 /// reaction is asked for, so it is fetched for every nuclide up front.
 const TOTAL_MT = 1;
@@ -58,9 +66,50 @@ const KNOWN_LIBRARIES = new Set(LIBRARIES.map((l) => l.id));
 /// Where a section of one nuclide lives on the data host.
 ///
 /// The published layout, which the page does not get to choose:
-/// `<origin>/<library>/neutron/<Nuclide>.arrow/<file>`.
-export const dataUrl = (origin, library, name, file) =>
-  `${origin}/${library}/neutron/${name}.arrow/${file}`;
+/// `<origin>/<library>/<release>/neutron/<Nuclide>.arrow/<file>`.
+export const dataUrl = (origin, library, release, name, file) =>
+  `${origin}/${library}/${release}/neutron/${name}.arrow/${file}`;
+
+/// Where a library says which release is current.
+export const latestUrl = (origin, library) => `${origin}/${library}/latest.json`;
+
+/// The release id out of a parsed `latest.json` for `library`, refusing a
+/// pointer for another library or a data format this page cannot read.
+export function releaseFromLatest(latest, library) {
+  if (latest?.schema !== 'yamc-data-latest' || typeof latest.release !== 'string' || !latest.release) {
+    throw new Error(`latest.json for ${library} does not name a release`);
+  }
+  if (latest.keyword !== library) {
+    throw new Error(`latest.json for ${library} is for ${latest.keyword}`);
+  }
+  if (!SUPPORTED_FORMAT_VERSIONS.includes(latest.format_version)) {
+    throw new Error(
+      `${library} release ${latest.release} is data format ${latest.format_version}; ` +
+      `this page reads format ${SUPPORTED_FORMAT_VERSIONS.join(', ')}`);
+  }
+  return latest.release;
+}
+
+/// Lower-case hex sha256 of `bytes`.
+async function sha256Hex(bytes) {
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+  return Array.from(digest, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/// The bytes of `part` cut out of the fetched `spans`, checked against the
+/// sha256 version.json gives for them: a wrong byte still frames as Arrow and
+/// would read as a wrong cross section.
+async function cutChecked(target, spans, bodies, part) {
+  const i = spans.findIndex((sp) => part.off >= sp.off && part.off + part.len <= sp.off + sp.len);
+  if (i < 0) throw new Error(`${target}: no fetched span covers ${part.off}+${part.len}`);
+  const from = part.off - spans[i].off;
+  const bytes = bodies[i].slice(from, from + part.len);
+  const got = await sha256Hex(bytes);
+  if (got !== part.sha256) {
+    throw new Error(`${target}: bytes ${part.off}+${part.len} have sha256 ${got}, version.json says ${part.sha256}`);
+  }
+  return bytes;
+}
 
 /// Where the same sections are registered in the wasm filesystem. The loader
 /// resolves a nuclide by this path, so it has to match what add_file wrote.
@@ -111,6 +160,8 @@ export function createEngine({ origin = ORIGIN, fetchImpl = fetch } = {}) {
   /// Per-(library, nuclide) state. Held as the in-flight promise so concurrent
   /// materials sharing a nuclide coalesce onto one download.
   const nuclides = new Map();
+  /// Per-library release id from `latest.json`, as the in-flight promise.
+  const releases = new Map();
   /// Materials the page has asked for, keyed by library and the page's id.
   const materials = new Map();
   /// Once a ranged request has come back as a whole object, something between
@@ -119,7 +170,7 @@ export function createEngine({ origin = ORIGIN, fetchImpl = fetch } = {}) {
   let rangesStripped = false;
 
   // Bound to this engine's origin; the rest are the module-level helpers above.
-  const url = (library, name, file) => dataUrl(origin, library, name, file);
+  const url = (entry, file) => dataUrl(origin, entry.library, entry.release, entry.name, file);
   const dir = storeDir;
   const key = materialKey;
 
@@ -139,6 +190,24 @@ export function createEngine({ origin = ORIGIN, fetchImpl = fetch } = {}) {
     return { bytes, whole: false };
   }
 
+  /// The current release of a library, read from its `latest.json` once.
+  function ensureRelease(library) {
+    if (!releases.has(library)) {
+      releases.set(library, loadRelease(library).catch((err) => {
+        releases.delete(library);
+        throw err;
+      }));
+    }
+    return releases.get(library);
+  }
+
+  async function loadRelease(library) {
+    const target = latestUrl(origin, library);
+    const resp = await fetchImpl(target);
+    if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText} fetching ${target}`);
+    return releaseFromLatest(await resp.json(), library);
+  }
+
   /// Load a nuclide's metadata from one library and record where its grids
   /// and reactions live, so each can be fetched when a temperature and a
   /// reaction are chosen.
@@ -156,7 +225,9 @@ export function createEngine({ origin = ORIGIN, fetchImpl = fetch } = {}) {
   }
 
   async function loadNuclide(library, name) {
-    const versionResp = await fetchImpl(url(library, name, 'version.json'));
+    const release = await ensureRelease(library);
+    const at = { library, release, name };
+    const versionResp = await fetchImpl(url(at, 'version.json'));
     if (versionResp.status === 404) {
       // Nothing else under this directory can exist either. The libraries
       // differ in coverage (TENDL-2025 has no H1, for one), so this is the
@@ -164,11 +235,11 @@ export function createEngine({ origin = ORIGIN, fetchImpl = fetch } = {}) {
       throw new Error(`${name} is not published in ${library}`);
     }
     if (!versionResp.ok) {
-      throw new Error(`${versionResp.status} ${versionResp.statusText} fetching ${url(library, name, 'version.json')}`);
+      throw new Error(`${versionResp.status} ${versionResp.statusText} fetching ${url(at, 'version.json')}`);
     }
     const [versionBytes, nuclideBytes] = await Promise.all([
       versionResp.arrayBuffer().then((b) => new Uint8Array(b)),
-      fetchBytes(url(library, name, 'nuclide.arrow')).then((g) => g.bytes),
+      fetchBytes(url(at, 'nuclide.arrow')).then((g) => g.bytes),
     ]);
     let version;
     try {
@@ -181,6 +252,7 @@ export function createEngine({ origin = ORIGIN, fetchImpl = fetch } = {}) {
 
     const entry = {
       library,
+      release,
       name,
       dir: dir(library, name),
       /// Reaction batches fetched so far, MT -> {off, len, bytes}, in file order
@@ -215,7 +287,7 @@ export function createEngine({ origin = ORIGIN, fetchImpl = fetch } = {}) {
     } else {
       // No usable index, or an origin that ignores Range: take both files
       // whole. They carry every temperature, so nothing more is needed.
-      const got = await fetchBytes(url(library, name, 'energy.arrow'));
+      const got = await fetchBytes(url(entry, 'energy.arrow'));
       sim.add_file(`${entry.dir}/energy.arrow`, got.bytes);
       entry.wholeEnergy = true;
       await loadWholeReactions(entry);
@@ -226,7 +298,7 @@ export function createEngine({ origin = ORIGIN, fetchImpl = fetch } = {}) {
   /// Fallback for a nuclide without a usable index, or an origin that ignores
   /// `Range`: take the whole reactions file and let the wasm say what it holds.
   async function loadWholeReactions(entry) {
-    const got = await fetchBytes(url(entry.library, entry.name, 'reactions.arrow'));
+    const got = await fetchBytes(url(entry, 'reactions.arrow'));
     sim.add_file(`${entry.dir}/reactions.arrow`, got.bytes);
     entry.whole = true;
     entry.batches.clear();
@@ -268,7 +340,7 @@ export function createEngine({ origin = ORIGIN, fetchImpl = fetch } = {}) {
   async function fetchGrid(entry, temperature) {
     const range = entry.energy?.temperatures.get(temperature);
     if (!range) throw new Error(`${entry.name} is not published at ${temperature} in ${entry.library}`);
-    const target = url(entry.library, entry.name, 'energy.arrow');
+    const target = url(entry, 'energy.arrow');
     // The schema is fetched once and kept, as it is for the reactions file.
     const parts = entry.energySchema ? [range] : [entry.energy.schema, range];
     const spans = coalesce(parts);
@@ -283,14 +355,9 @@ export function createEngine({ origin = ORIGIN, fetchImpl = fetch } = {}) {
       return;
     }
     const bodies = got.map((g) => g.bytes);
-    const cut = (part) => {
-      const i = spans.findIndex((sp) => part.off >= sp.off && part.off + part.len <= sp.off + sp.len);
-      if (i < 0) throw new Error(`${entry.name}: no fetched span covers ${part.off}+${part.len}`);
-      const from = part.off - spans[i].off;
-      return bodies[i].slice(from, from + part.len);
-    };
-    if (!entry.energySchema) entry.energySchema = cut(entry.energy.schema);
-    entry.grids.set(temperature, { off: range.off, len: range.len, bytes: cut(range) });
+    const cut = (part) => cutChecked(target, spans, bodies, part);
+    if (!entry.energySchema) entry.energySchema = await cut(entry.energy.schema);
+    entry.grids.set(temperature, { off: range.off, len: range.len, bytes: await cut(range) });
     writeEnergy(entry);
   }
 
@@ -348,7 +415,7 @@ export function createEngine({ origin = ORIGIN, fetchImpl = fetch } = {}) {
     const plan = entry.schema
       ? { parts: [...wanted].sort((a, b) => a.off - b.off), spans: coalesce([...wanted]) }
       : planFetch(ranges.schema, wanted);
-    const target = url(entry.library, entry.name, 'reactions.arrow');
+    const target = url(entry, 'reactions.arrow');
     try {
       const got = await Promise.all(plan.spans.map((span) => fetchBytes(target, span)));
       const whole = got.find((g) => g.whole);
@@ -362,18 +429,15 @@ export function createEngine({ origin = ORIGIN, fetchImpl = fetch } = {}) {
         return;
       }
       const bodies = got.map((g) => g.bytes);
-      const cut = (part) => {
-        const i = plan.spans.findIndex((s) => part.off >= s.off && part.off + part.len <= s.off + s.len);
-        if (i < 0) throw new Error(`${entry.name}: no fetched span covers ${part.off}+${part.len}`);
-        const from = part.off - plan.spans[i].off;
-        return bodies[i].slice(from, from + part.len);
-      };
-      if (!entry.schema) entry.schema = cut(ranges.schema);
-      for (const part of wanted) {
+      const cut = (part) => cutChecked(target, plan.spans, bodies, part);
+      const schema = entry.schema ?? await cut(ranges.schema);
+      const cutBatches = await Promise.all(wanted.map(cut));
+      entry.schema = schema;
+      wanted.forEach((part, i) => {
         // One batch is one MT at one temperature, so both belong in the key:
         // the same reaction at 294 K and at 900 K is two batches to hold.
-        entry.batches.set(`${part.mt}@${temperature}`, { off: part.off, len: part.len, bytes: cut(part) });
-      }
+        entry.batches.set(`${part.mt}@${temperature}`, { off: part.off, len: part.len, bytes: cutBatches[i] });
+      });
       writeReactions(entry);
     } finally {
       for (const mt of mts) entry.inFlight.delete(`${mt}@${temperature}`);
