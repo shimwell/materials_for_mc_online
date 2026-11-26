@@ -25,11 +25,11 @@ const loadingDiv = document.getElementById('loading');
 const defaultLoadingHTML = loadingDiv.innerHTML;
 function showBusy(message) {
     busyCounter++;
-    if (message) loadingDiv.innerHTML = `<span class="spinner"></span>${message}`;
+    if (message) loadingDiv.innerHTML = `<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>${message}`;
     loadingDiv.style.display = 'block';
 }
 function updateBusyMessage(message) {
-    if (busyCounter > 0 && message) loadingDiv.innerHTML = `<span class="spinner"></span>${message}`;
+    if (busyCounter > 0 && message) loadingDiv.innerHTML = `<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>${message}`;
 }
 function hideBusy() {
     busyCounter = Math.max(0, busyCounter - 1);
@@ -260,8 +260,8 @@ const builder = document.getElementById('material-builder');
 
 function componentRowHtml(component = { name: '', fraction: '' }) {
     return `<tr>
-        <td><input class="component-name" placeholder="Element or isotope e.g. Li or Li6" autocomplete="off" value="${escapeHtml(component.name ?? '')}"></td>
-        <td><input class="component-fraction" type="number" step="any" min="0" placeholder="1.0" value="${component.fraction ?? ''}"></td>
+        <td><input class="component-name form-control form-control-sm" placeholder="Element or isotope e.g. Li or Li6" autocomplete="off" value="${escapeHtml(component.name ?? '')}"></td>
+        <td><input class="component-fraction form-control form-control-sm" type="number" step="any" min="0" placeholder="1.0" value="${component.fraction ?? ''}"></td>
         <td><span class="component-remove" title="Remove this component">\u2716</span></td>
     </tr>`;
 }
@@ -415,7 +415,7 @@ function addReactionRow(preset = null) {
     materialLabel.textContent = 'Material:';
 
     const materialSelect = document.createElement('select');
-    materialSelect.className = 'material-select';
+    materialSelect.className = 'material-select form-select form-select-sm';
     materialSelect.dataset.rowId = rowId;
     materialSelect.innerHTML = materialOptionsHtml();
 
@@ -425,7 +425,7 @@ function addReactionRow(preset = null) {
     libraryLabelDiv.textContent = 'Library:';
 
     const librarySelect = document.createElement('select');
-    librarySelect.className = 'library-select';
+    librarySelect.className = 'library-select form-select form-select-sm';
     librarySelect.dataset.rowId = rowId;
     librarySelect.innerHTML = LIBRARIES
         .map(lib => `<option value="${lib.id}">${lib.label}</option>`)
@@ -438,7 +438,7 @@ function addReactionRow(preset = null) {
     temperatureLabelDiv.textContent = 'Temperature:';
 
     const temperatureSelect = document.createElement('select');
-    temperatureSelect.className = 'temperature-select';
+    temperatureSelect.className = 'temperature-select form-select form-select-sm';
     temperatureSelect.dataset.rowId = rowId;
     temperatureSelect.innerHTML = TEMPERATURES
         .map(t => `<option value="${t}">${displayLabel(t)}</option>`)
@@ -451,7 +451,7 @@ function addReactionRow(preset = null) {
     reactionLabel.textContent = 'Reaction:';
 
     const reactionSelect = document.createElement('select');
-    reactionSelect.className = 'reaction-select';
+    reactionSelect.className = 'reaction-select form-select form-select-sm';
     reactionSelect.dataset.rowId = rowId;
 
     // Create delete button
@@ -554,6 +554,21 @@ function addReactionRow(preset = null) {
     });
 }
 
+// The dark figure of nuclide_cross_section_plotter, so the two plotters
+// look alike: its surface and grid colours and its palette, in order.
+const PALETTE = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9', '#e66767'];
+const SURFACE = '#1a1a19';
+const GRID = '#33332f';
+const INK = '#ffffff';
+const INK_SECONDARY = '#c3c2b7';
+const axisStyle = (type, title) => ({
+    type,
+    gridcolor: GRID, zerolinecolor: GRID, linecolor: GRID,
+    tickfont: { color: INK_SECONDARY },
+    title: { text: title, font: { color: INK } },
+    exponentformat: 'power',
+});
+
 // Update the plot based on selected reactions
 async function updatePlot() {
     const rows = document.querySelectorAll('.reaction-row');
@@ -609,14 +624,26 @@ async function updatePlot() {
     const energyReleaseMts = traceMts.filter(isEnergyRelease);
     const mixed = energyReleaseMts.length > 0 && energyReleaseMts.length < traceMts.length;
     if (mixed) traceMts.forEach((mt, i) => { if (isEnergyRelease(mt)) plotData[i].yaxis = 'y2'; });
-    const layout = { xaxis:{ title:'Energy (eV)', type:xScaleType }, hovermode:'closest', legend:{x:0,y:1} };
+    // The figure of nuclide_cross_section_plotter: a dark surface, its
+    // palette in fixed order, and the legend under the plot.
+    const layout = {
+        paper_bgcolor: SURFACE, plot_bgcolor: SURFACE,
+        font: { color: INK_SECONDARY, size: 13 },
+        colorway: PALETTE,
+        margin: { l: 80, r: mixed ? 80 : 30, t: 20, b: 60 },
+        xaxis: { ...axisStyle(xScaleType, 'Energy (eV)') },
+        hovermode: 'closest',
+        hoverlabel: { bgcolor: '#26262a', bordercolor: GRID, font: { color: INK } },
+        showlegend: true,
+        legend: { orientation: 'h', y: -0.16, yanchor: 'top', font: { color: INK } },
+    };
     if (traceMts.length && energyReleaseMts.length === traceMts.length) {
-        layout.yaxis = { title: energyReleaseTitle(energyReleaseMts), type: yScaleType };
+        layout.yaxis = axisStyle(yScaleType, energyReleaseTitle(energyReleaseMts));
     } else {
-        layout.yaxis = { title: 'Cross Section (cm⁻¹)', type: yScaleType };
-        if (mixed) layout.yaxis2 = { title: energyReleaseTitle(energyReleaseMts), type: yScaleType, overlaying: 'y', side: 'right' };
+        layout.yaxis = axisStyle(yScaleType, 'Cross Section (cm⁻¹)');
+        if (mixed) layout.yaxis2 = { ...axisStyle(yScaleType, energyReleaseTitle(energyReleaseMts)), overlaying: 'y', side: 'right', showgrid: false };
     }
-    Plotly.newPlot('plot', plotData, layout);
+    Plotly.newPlot('plot', plotData, layout, { responsive: true, displaylogo: false, scrollZoom: true, modeBarButtonsToRemove: ['select2d', 'lasso2d'] });
 }
 
 // Function to download plot data as JSON
