@@ -69,7 +69,9 @@ then splices the pieces into Arrow streams for the wasm reader. Choosing a new
 reaction costs one small range request per nuclide rather than a reload, and no
 cross section data is kept in this repository.
 
-- `index.html`: the page
+- `index.html`, `style.css`: the page, styled like nuclide_cross_section_plotter (dark Bootstrap theme on the xsplot.com gradient)
+- `vendor/`: Bootstrap and Plotly at pinned versions, served from this repository rather than a CDN, so opening the page contacts no third party besides the data host
+- `privacy.html`: the privacy notice linked from the page footer
 - `wasmWorker.js`: Web Worker that hosts the wasm, one message per request
 - `engine.js`: fetching, splicing and the calls into the wasm material API
 - `ranges.js`: byte-range planning and Arrow stream splicing, no DOM or network
