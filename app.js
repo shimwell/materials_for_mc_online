@@ -12,7 +12,9 @@ import {
     mergeDefinition, loadStored, saveStored, DENSITY_UNITS,
 } from './custom_materials.js';
 import { encodeState, decodeState } from './url_state.js';
-import { TEMPERATURES, DEFAULT_TEMPERATURE, displayLabel, kelvinOf } from './temperatures.js';
+import { TEMPERATURES, DEFAULT_TEMPERATURE, displayLabel } from './temperatures.js';
+import { citeTitle, citeListHtml } from './citations.js';
+import { isEnergyRelease, plotDataJson } from './download.js';
 
 // Replace direct WASM usage with Web Worker interface
 const worker = new Worker('./wasmWorker.js', { type: 'module' });
@@ -96,22 +98,37 @@ function clearError() {
 }
 
 // MTs whose microscopic quantity is an energy release in eV barn rather
-// than a cross section in barn: ENDF reserves 301 to 450 for
-// energy-release (KERMA) parameters, 444 is damage energy production
-// and 901 is local heating. Their macroscopic value is energy per unit
-// path length, eV cm⁻¹, so they are drawn on their own axis.
-function isEnergyRelease(mt) {
-    mt = Number(mt);
-    return (mt >= 301 && mt <= 450) || mt === 901;
-}
+// than a cross section in barn (isEnergyRelease, in download.js) have a
+// macroscopic value that is energy per unit path length, eV cm⁻¹, so they
+// are drawn on their own axis.
 function energyReleaseTitle(mts) {
     const kinds = new Set(mts.map(mt => (Number(mt) === 444 ? 'Damage Energy' : 'Heating')));
     const label = kinds.size === 1 ? [...kinds][0] : 'Energy Release';
     return `${label} (eV cm⁻¹)`;
 }
 
+// The citation list under the plot: every library on offer, those the
+// plotted rows read first and marked.
+function renderCitations(used) {
+    document.getElementById('cite-list').innerHTML = citeListHtml(LIBRARIES.map((l) => l.id), used);
+}
+
+// Links to a section of the page scroll to it in script, because the URL
+// hash holds the plot and a `#cite` link would replace it.
+function wireScrollLinks() {
+    for (const link of document.querySelectorAll('[data-scroll-to]')) {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            document.getElementById(link.dataset.scrollTo)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    }
+}
+
 // Initialize the application
 async function init_app() {
+    renderCitations(new Set());
+    wireScrollLinks();
+
     // Load materials.json
     try {
         const response = await fetch('./materials.json');
@@ -427,10 +444,14 @@ function addReactionRow(preset = null) {
     const librarySelect = document.createElement('select');
     librarySelect.className = 'library-select form-select form-select-sm';
     librarySelect.dataset.rowId = rowId;
+    // Hovering a library, in the list or once chosen, shows what to cite.
     librarySelect.innerHTML = LIBRARIES
-        .map(lib => `<option value="${lib.id}">${lib.label}</option>`)
+        .map(lib => `<option value="${lib.id}" title="${escapeHtml(citeTitle(lib.id))}">${lib.label}</option>`)
         .join('');
     librarySelect.value = DEFAULT_LIBRARY;
+    const showLibraryCitation = () => { librarySelect.title = citeTitle(librarySelect.value); };
+    showLibraryCitation();
+    librarySelect.addEventListener('change', showLibraryCitation);
 
     // Create temperature select with labels
     const temperatureLabelDiv = document.createElement('div');
@@ -540,6 +561,7 @@ function addReactionRow(preset = null) {
     // A row restored from the URL starts on what the link named;
     // otherwise the first row opens on pure Li-6, as it always has.
     if (preset?.library && LIBRARIES.some((l) => l.id === preset.library)) librarySelect.value = preset.library;
+    showLibraryCitation();
     if (preset?.temperature && TEMPERATURES.includes(preset.temperature)) temperatureSelect.value = preset.temperature;
     materialSelect.value = definitionFor(preset?.materialId) ? preset.materialId : 'pure_li6';
 
@@ -572,7 +594,10 @@ const axisStyle = (type, title) => ({
 // Update the plot based on selected reactions
 async function updatePlot() {
     const rows = document.querySelectorAll('.reaction-row');
-    if (rows.length === 0) return;
+    if (rows.length === 0) {
+        renderCitations(new Set());
+        return;
+    }
     // Determine which MTs need computing first for progress display
     const tasks = [];
     for (const row of rows) {
@@ -588,6 +613,7 @@ async function updatePlot() {
     if (tasks.length) showBusy(`Computing cross sections 0/${tasks.length}...`);
     const plotData = [];
     const traceMts = [];
+    const plottedLibraries = new Set();
     for (const row of rows) {
         const materialSelect = row.querySelector('.material-select');
         const librarySelect = row.querySelector('.library-select');
@@ -609,6 +635,7 @@ async function updatePlot() {
             if (!mat.crossSections[mt]) continue;
             plotData.push({ x: mat.energyGrid, y: mat.crossSections[mt], type:'scatter', mode:'lines', name: `${mat.name} - MT ${mt} - ${libraryLabel(library)} - ${displayLabel(temperature)}` });
             traceMts.push(Number(mt));
+            plottedLibraries.add(library);
         } catch(err) {
             console.error('Plot update XS error', err);
             showError(`Could not compute MT ${mt} for ${materialId} from ${libraryLabel(library)} at ${displayLabel(temperature)}: ${err.message}`);
@@ -616,6 +643,7 @@ async function updatePlot() {
     }
     if (tasks.length) hideBusy();
     syncUrl();
+    renderCitations(plottedLibraries);
     const xScaleType = document.querySelector('input[name="x-scale"]:checked').value;
     const yScaleType = document.querySelector('input[name="y-scale"]:checked').value;
     // Cross sections in cm⁻¹ and energy releases in eV cm⁻¹ never share
@@ -646,69 +674,37 @@ async function updatePlot() {
     Plotly.newPlot('plot', plotData, layout, { responsive: true, displaylogo: false, scrollZoom: true, modeBarButtonsToRemove: ['select2d', 'lasso2d'] });
 }
 
-// Function to download plot data as JSON
+// Download what is plotted as JSON, one object per row, each carrying the
+// citations and terms of its library (see download.js).
 function downloadPlotData() {
-    // Get all reaction rows
     const rows = document.querySelectorAll('.reaction-row');
     if (rows.length === 0) {
         alert('No data to download. Please add at least one reaction first.');
         return;
     }
 
-    const exportData = [];
-
-    // Create data objects for each selected reaction
+    const plotted = [];
     for (const row of rows) {
-        const materialSelect = row.querySelector('.material-select');
-        const librarySelect = row.querySelector('.library-select');
-        const temperatureSelect = row.querySelector('.temperature-select');
-        const reactionSelect = row.querySelector('.reaction-select');
+        const materialId = row.querySelector('.material-select').value;
+        const library = row.querySelector('.library-select').value;
+        const temperature = row.querySelector('.temperature-select').value;
+        const mt = row.querySelector('.reaction-select').value;
 
-        const materialId = materialSelect.value;
-        const library = librarySelect.value;
-        const temperature = temperatureSelect.value;
-        const mt = reactionSelect.value;
+        // Skip a row whose material is not loaded or lacks the reaction
+        const material = materialData[materialKey(materialId, library, temperature)];
+        if (!material || !material.crossSections[mt]) continue;
 
-        // Skip if material data isn't loaded
-        const key = materialKey(materialId, library, temperature);
-        if (!materialData[key]) {
-            continue;
-        }
-
-        const material = materialData[key];
-
-        // Skip if material doesn't have the selected reaction
-        if (!material.crossSections[mt]) {
-            continue;
-        }
-
-        // Create name for the dataset
-        const mtName = mt === 'total' ? 'Total' : `MT ${mt}`;
-
-        // Typed arrays serialise as objects, so convert to plain arrays
-        const energyValues = Array.from(material.energyGrid);
-        const xsValues = Array.from(material.crossSections[mt]);
-
-        // Add to export data with separate energy and value arrays,
-        // naming the value array by its unit
-        const energyRelease = isEnergyRelease(mt);
-        exportData.push({
+        plotted.push({
             material: material.name,
             library,
-            temperature_K: kelvinOf(temperature),
-            reaction: mtName,
-            reactionId: mt,
-            units: energyRelease ? 'eV/cm' : '1/cm',
-            energy_eV: energyValues,
-            [energyRelease ? 'eV_per_cm' : 'xs_per_cm']: xsValues
+            temperature,
+            mt,
+            energy: material.energyGrid,
+            values: material.crossSections[mt],
         });
     }
 
-    // Create a JSON string
-    const jsonData = JSON.stringify(exportData, null, 2);
-
-    // Create a blob and download link
-    const blob = new Blob([jsonData], { type: 'application/json' });
+    const blob = new Blob([plotDataJson(plotted)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
 
     // Create a temporary link element and trigger download

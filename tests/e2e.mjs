@@ -141,6 +141,40 @@ await page.waitForFunction(() => document.querySelector('.reaction-select')?.opt
 step('and they stay gone after a reload',
   (await page.evaluate(() => document.querySelectorAll('.custom-chip').length)) === 0);
 
+// Citations: the section lists every library, the plotted ones first and
+// marked, and follows a row's library when it changes.
+const citeState = () => page.evaluate(() => ({
+  order: [...document.querySelectorAll('#cite-list .cite-entry')].map((li) => li.dataset.library),
+  inPlot: [...document.querySelectorAll('#cite-list .cite-entry.in-plot')].map((li) => li.dataset.library),
+  title: document.querySelector('.library-select').title,
+  optionTitles: [...document.querySelectorAll('.library-select option')].every((o) => o.title.includes('doi:10.')),
+}));
+await page.selectOption('.reaction-select', '1');
+await plotted(1);
+let cite = await citeState();
+step('the citation list names every library, the plotted one first',
+  cite.order.length === 6 && cite.order[0] === 'endf-b8.1' && cite.inPlot.join() === 'endf-b8.1', JSON.stringify(cite));
+step('hovering a library shows what to cite',
+  cite.title.startsWith('ENDF/B-VIII.1. Cite:') && cite.optionTitles, cite.title);
+await page.selectOption('.library-select', 'jeff-4.0');
+await page.waitForFunction(() => document.getElementById('plot')?.data?.[0]?.name.includes('JEFF-4.0'), null, { timeout: 120000 });
+cite = await citeState();
+step('changing a row\'s library changes what the list marks',
+  cite.order[0] === 'jeff-4.0' && cite.inPlot.join() === 'jeff-4.0' && cite.title.startsWith('JEFF-4.0. Cite'), JSON.stringify(cite));
+await page.waitForTimeout(500);
+const hashBefore = await page.evaluate(() => location.hash);
+await page.click('footer [data-scroll-to="cite"]');
+await page.waitForTimeout(800);
+const afterScroll = await page.evaluate(() => ({ hash: location.hash, top: document.getElementById('cite').getBoundingClientRect().top }));
+step('the Cite link scrolls to the section and keeps the plot in the URL',
+  afterScroll.hash === hashBefore && hashBefore.includes('jeff-4.0') && afterScroll.top < 200, JSON.stringify(afterScroll));
+const [download] = await Promise.all([page.waitForEvent('download'), page.click('#download-data-btn')]);
+const exported = JSON.parse(await (await download.createReadStream()).toArray().then((parts) => Buffer.concat(parts).toString('utf8')));
+step('the download cites the library of each row and states its terms',
+  exported.length === 1 && exported[0].library === 'jeff-4.0' && exported[0].citations[0].doi === '10.82555/e9ajn-a3p20' && /CC BY 4\.0/.test(exported[0].terms),
+  JSON.stringify({ library: exported[0]?.library, citations: exported[0]?.citations, terms: exported[0]?.terms }));
+await page.locator('#cite').screenshot({ path: `${SHOTS}citations.png` });
+
 step('no console errors', errors.length === 0, errors.join(' | '));
 await browser.close();
 if (process.exitCode) process.exit(process.exitCode);

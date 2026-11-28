@@ -14,7 +14,7 @@
     <h1 class="text-center mb-1">Materials Macroscopic Cross Section Plotter</h1>
     <p class="subtitle text-center mb-1">A collection of materials with on the fly macroscopic cross section calculation by Jon Shimwell. See my other projects on <a href="https://xsplot.com/" target="_blank" rel="noopener">xsplot.com</a></p>
     <p class="subtitle text-center mb-1">Links to material definition data sources <a href="https://www.pnnl.gov/publications/compendium-material-composition-data-radiation-transport-modeling-1" target="_blank" rel="noopener">[1]</a>, <a href="https://github.com/fusion-energy/neutronics_material_maker/tree/main/src/neutronics_material_maker/data" target="_blank" rel="noopener">[2]</a>.</p>
-    <p class="subtitle text-center mb-3">Cross sections from the nuclear data library and temperature chosen in each row.</p>
+    <p class="subtitle text-center mb-3">Cross sections from the nuclear data library and temperature chosen in each row. If you use them, please <a href="./" data-scroll-to="cite">cite the nuclear data libraries</a>.</p>
 
     <section class="panel materials-panel mb-3" aria-label="your materials">
         <div class="materials-header">
@@ -96,7 +96,17 @@
 
     <div id="plot" class="plot-container rounded"></div>
 
+    <section id="cite" class="panel cite-panel mt-4" aria-labelledby="cite-heading">
+        <h2 id="cite-heading" class="h5 mb-2">Cite the nuclear data</h2>
+        <p class="mb-2">Every macroscopic cross section on this page is computed from the microscopic cross sections of an evaluated nuclear data library: years of measurement, nuclear modelling and expert judgement by the evaluators who made it. If you use these plots or their data, cite the libraries they come from. The download carries the same references for each row it holds.</p>
+        <div id="cite-list"></div>
+        <p class="cite-processing mb-2">What is plotted is the library processed for <a href="https://github.com/fusion-neutronics/yamc-and-yani" target="_blank" rel="noopener">yamc</a>: neutron data processed with NJOY and Doppler broadened to the temperature chosen, converted to the Arrow tables yamc reads, and summed into macroscopic cross sections in your browser by yamc compiled to WebAssembly. No evaluated value was intentionally changed.</p>
+        <p class="mb-0"><a href="./nuclear-data.bib" download>BibTeX for every reference above</a></p>
+    </section>
+
     <footer class="mt-4 pt-3 border-top border-secondary small text-center">
+        <a href="./" data-scroll-to="cite">Cite</a>
+        &middot;
         <a href="./privacy.html">Privacy</a>
         &middot;
         <a href="https://github.com/shimwell/materials_for_mc_online" target="_blank" rel="noopener">Source</a>

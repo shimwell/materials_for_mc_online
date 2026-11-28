@@ -38,7 +38,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # custom materials, temperatures, URL state and the byte-range
+      # custom materials, temperatures, URL state, citations, the download and the byte-range
       # arithmetic. No browser and no network.
       - run: npm test
 
