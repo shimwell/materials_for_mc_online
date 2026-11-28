@@ -46,7 +46,7 @@ The page says the same in three places:
 the publishers registered, and is linked from the section.
 
 The references are the ones the libraries' developers ask for, as listed by
-the [yamc and yani docs](https://github.com/fusion-neutronics/yamc-and-yani).
+the yamc and yani docs.
 `citations.js` holds them, and is the same file in
 [nuclide_cross_section_plotter.rs](https://github.com/fusion-energy/nuclide_cross_section_plotter.rs)
 and [xsplot-angular-energy-distribution](https://github.com/fusion-energy/xsplot-angular-energy-distribution).
