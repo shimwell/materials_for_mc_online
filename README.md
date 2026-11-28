@@ -1,6 +1,6 @@
 # materials_for_mc_online
 
-Demonstration of the [yamc](https://github.com/fusion-neutronics/yamc)
+Demonstration of the yamc
 material builder compiled to WebAssembly (the crate was previously called
 Materials_for_MC).
 
