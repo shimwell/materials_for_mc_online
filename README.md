@@ -15,6 +15,42 @@ TENDL-2017 or FENDL-3.2d), so one material can be compared across libraries.
 
 The online site is here: [https://shimwell.github.io/materials_for_mc_online/](https://shimwell.github.io/materials_for_mc_online/)
 
+## Cite the nuclear data
+
+Every macroscopic cross section the page draws is computed from an evaluated
+nuclear data library, and the evaluators who made each library ask to be cited
+wherever their data is used. If you use a plot or its data, cite the library
+each row came from:
+
+| Library | Cite |
+| --- | --- |
+| ENDF/B-VIII.1 | G.P.A. Nobre, R. Capote, M.T. Pigni et al., Nuclear Data Sheets 210 (2026) 1-224, [doi:10.1016/j.nds.2026.04.001](https://doi.org/10.1016/j.nds.2026.04.001), and the library itself, [doi:10.11578/endf/2571019](https://doi.org/10.11578/endf/2571019) |
+| JEFF-4.0 | The JEFF-4.0 neutron data set, OECD Nuclear Energy Agency (2025), [doi:10.82555/e9ajn-a3p20](https://doi.org/10.82555/e9ajn-a3p20). The journal paper is in preparation, so the NEA asks for the data sets to be cited, and this page reads only the neutron one |
+| JENDL-5 | O. Iwamoto et al., Journal of Nuclear Science and Technology 60 (2023) 1-60, [doi:10.1080/00223131.2022.2141903](https://doi.org/10.1080/00223131.2022.2141903). JAEA requires this citation |
+| TENDL-2025, TENDL-2017 | A.J. Koning, D. Rochman, Nuclear Data Sheets 113 (2012) 2841, [doi:10.1016/j.nds.2012.11.002](https://doi.org/10.1016/j.nds.2012.11.002), and A.J. Koning et al., Nuclear Data Sheets 155 (2019) 1, [doi:10.1016/j.nds.2019.01.002](https://doi.org/10.1016/j.nds.2019.01.002) |
+| FENDL-3.2d | G. Schnabel et al., Nuclear Data Sheets 193 (2024) 1-78, [doi:10.1016/j.nds.2024.01.001](https://doi.org/10.1016/j.nds.2024.01.001) |
+
+The page says the same in three places:
+
+- a **Cite the nuclear data** section under the plot, listing every library
+  with who made it, its references and DOIs, and its terms, with the libraries
+  in the current plot first and marked;
+- **hover text** on each row's library dropdown, and on each library in it,
+  giving the citation;
+- the **download**, where every row carries `citations` (each a `reference`
+  and its `doi`) and the `terms` its library is redistributed under, the same
+  fields yamc and yani give a run's `data_releases`. JEFF-4.0 and JENDL-5 are
+  CC BY 4.0, which asks for the credit and the licence to travel with the data.
+
+`nuclear-data.bib` holds every reference as BibTeX, with the full author lists
+the publishers registered, and is linked from the section.
+
+The references are the ones the libraries' developers ask for, as listed by
+the yamc and yani docs.
+`citations.js` holds them, and is the same file in
+[nuclide_cross_section_plotter.rs](https://github.com/fusion-energy/nuclide_cross_section_plotter.rs)
+and [xsplot-angular-energy-distribution](https://github.com/fusion-energy/xsplot-angular-energy-distribution).
+
 ## Temperature
 
 Each row picks a temperature as well as a library, so a material can be drawn
@@ -77,6 +113,8 @@ cross section data is kept in this repository.
 - `ranges.js`: byte-range planning and Arrow stream splicing, no DOM or network
 - `mt_names.js`: ENDF reaction names by MT number, generated from the `endf` crate in `core`
 - `libraries.js`: the libraries on offer, shared by the page and the engine
+- `citations.js`: who made each library, what to cite for it and its terms; `nuclear-data.bib`: the same references as BibTeX
+- `download.js`: what "Download Plot Data" writes, each row with its citations
 - `temperatures.js`: the temperatures on offer, and how a label is spelled
 - `custom_materials.js`: materials the user builds, with their validation and storage
 - `url_state.js`: the plot and any custom materials as a URL hash
@@ -96,7 +134,7 @@ nuclear data from the network, so it needs internet access.
 
 ```bash
 npm ci
-npm test                          # the rules behind the builder and the URL
+npm test                          # the builder, the URL, the download and the citations
 npx playwright install chromium
 python3 -m http.server 8000 &
 node tests/e2e.mjs                # drives the page against the live data
