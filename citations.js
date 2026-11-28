@@ -74,7 +74,7 @@ export const CREDITS = Object.freeze({
     library: 'JENDL-5',
     madeBy: 'the Nuclear Data Center of the Japan Atomic Energy Agency (JAEA)',
     page: 'https://wwwndc.jaea.go.jp/jendl/j5/j5.html',
-    terms: `${CC_BY_4_0}. JAEA requires the reference below to be cited wherever JENDL-5 is used.`,
+    terms: `${CC_BY_4_0}. JAEA requires its reference to be cited wherever JENDL-5 is used.`,
     short: 'Cite (required by JAEA): O. Iwamoto et al., Journal of Nuclear Science and Technology 60 (2023) 1-60, doi:10.1080/00223131.2022.2141903',
     references: [
       {
